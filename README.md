@@ -1,12 +1,12 @@
 # 🎯 Career Hub AI — IT Job Discovery Engine & Application Copilot
 
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
-[![Groq Cloud LLM](https://img.shields.io/badge/AI-Groq%20Cloud%20LLM-f55036.svg?logo=fastapi&logoColor=white)](https://groq.com/)
+[![LLM Powered](https://img.shields.io/badge/AI-LLM%20Engine-f55036.svg?logo=openai&logoColor=white)](https://github.com/nikitos7626/career-hub-bot)
 [![Telegram Mini App](https://img.shields.io/badge/UI-Telegram%20Mini%20App-229ED9.svg?logo=telegram&logoColor=white)](https://core.telegram.org/bots/webapps)
 [![Docker Compose](https://img.shields.io/badge/Deploy-Docker%20Compose-2496ED.svg?logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 
-Автономный мультиплатформенный агрегатор IT-вакансий, интеллектуальный скоринг на базе открытых LLM (Groq Cloud), генератор персонализированных технических откликов и система сопровождения найма со встроенным веб-интерфейсом (**Telegram Mini App / Desktop SPA**).
+Автономный мультиплатформенный агрегатор IT-вакансий, интеллектуальный скоринг на базе нейросетей (LLM), генератор персонализированных технических откликов и система сопровождения найма со встроенным веб-интерфейсом (**Telegram Mini App / Desktop SPA**).
 
 ---
 
@@ -27,7 +27,7 @@
 ```mermaid
 flowchart LR
     A["🌐 9 IT-площадок<br/>(HH, Хабр, TG, SuperJob)"] --> B["⚙️ Пре-фильтр<br/>(отсев Senior/1C, TTL)"]
-    B --> C["🧠 Groq AI<br/>(скоринг 1–10 + Cover Letters)"]
+    B --> C["🧠 Нейросеть (LLM)<br/>(скоринг 1–10 + Cover Letters)"]
     C --> D["🚀 Telegram Mini App<br/>(CRM воронка & авто-отклик)"]
 ```
 
@@ -45,7 +45,7 @@ flowchart LR
 
 ### 2. Интеллектуальная фильтрация и AI-скоринг
 * **Быстрый пре-фильтр:** отсекает нерелевантные специализации (QA, дизайн, 1С, PHP, системное администрирование, Senior/Lead) и недобросовестные компании из черного списка до отправки в нейросеть.
-* **Глубокий анализ соответствия (Groq LLM):** оценивает стек вакансии по шкале от 1 до 10, определяет ключевую роль (`Java Backend`, `Python Dev`, `AI Engineer`, `VPN Dev`, `Fullstack`) и формулирует аргументированный вердикт, на что обратить внимание при отклике.
+* **Глубокий анализ соответствия (LLM):** оценивает стек вакансии по шкале от 1 до 10, определяет ключевую роль (`Java Backend`, `Python Dev`, `AI Engineer`, `VPN Dev`, `Fullstack`) и формулирует аргументированный вердикт, на что обратить внимание при отклике.
 * **Защита от информационного шума:** в Telegram приходят мгновенные уведомления только о топовых вакансиях (**8–10 баллов**). Вакансии с оценкой 6–7 тихо попадают в базу Mini App без спама в чат.
 
 ### 3. Автоматизация откликов и сопроводительные письма
@@ -68,7 +68,7 @@ flowchart LR
 ## 🛠️ Стек технологий
 
 * **Backend:** Python 3.12+, `asyncio`, `aiohttp`, `threading`, встроенный HTTP REST API сервер без тяжелых оверхедов.
-* **AI & LLM:** [Groq Cloud API](https://groq.com/) (`llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `qwen-2.5-32b`).
+* **AI & LLM:** Поддержка любых современных LLM (LLaMA 3.3, Qwen 2.5, DeepSeek, Mistral, GPT через OpenAI-совместимый API или Groq).
 * **Frontend:** SPA на чистом JavaScript, Tailwind CSS (Dark Mode), Lucide Icons, Telegram WebApp SDK.
 * **Инфраструктура & DevOps:** Docker, Docker Compose, Nginx, Cloudflare Tunnels, systemd.
 
