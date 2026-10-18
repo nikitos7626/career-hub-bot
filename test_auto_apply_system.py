@@ -20,6 +20,8 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         bot.HH_NEGOTIATIONS_FILE = os.path.join(self.test_data_dir, "test_hh_neg.json")
         bot.CONFIG_FILE = os.path.join(self.test_data_dir, "test_config.json")
         bot._config_cache = None
+        os.environ["RESUME_QUICK_TUNNEL_URL"] = "https://demo-resume.trycloudflare.com/"
+        bot.DEFAULT_CONFIG["resume_quick_tunnel_url"] = "https://demo-resume.trycloudflare.com/"
 
     def tearDown(self):
         import shutil
@@ -36,7 +38,7 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         self.assertIn("hh_resume_id", cfg)
         self.assertEqual(cfg["notify_min_score"], 7)
         self.assertEqual(cfg["auto_apply_min_score"], 7)
-        self.assertEqual(cfg["resume_quick_tunnel_url"], "https://south-tomato-therapist-minimum.trycloudflare.com/")
+        self.assertEqual(cfg["resume_quick_tunnel_url"], "https://demo-resume.trycloudflare.com/")
         self.assertTrue(cfg["auto_apply_enabled"])
 
     def test_update_vacancy_status_extra_kwargs(self):
@@ -456,7 +458,7 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         # In case of API failure / fallback
         letter = bot.generate_cover_letter("dummy_key", "dummy_model", vacancy)
         self.assertIsNotNone(letter)
-        self.assertIn("https://south-tomato-therapist-minimum.trycloudflare.com/", letter)
+        self.assertIn("https://demo-resume.trycloudflare.com/", letter)
         self.assertIn("https://park.shadowkek.space", letter)
         self.assertIn("Clean Architecture", letter)
         self.assertIn("Spring Boot 3", letter)
@@ -471,7 +473,7 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         }
         letter = bot.generate_cover_letter("dummy_key", "dummy_model", vacancy)
         self.assertIsNotNone(letter)
-        self.assertIn("https://south-tomato-therapist-minimum.trycloudflare.com/", letter)
+        self.assertIn("https://demo-resume.trycloudflare.com/", letter)
         self.assertIn("https://park.shadowkek.space", letter)
         self.assertIn("https://github.com/nikitos7626/park-client", letter)
         self.assertIn("https://github.com/nikitos7626/Park-server", letter)
@@ -489,14 +491,14 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
 
         vacancy = {"title": "Junior Java Developer", "company": "Tinkoff", "role": "java"}
         letter = bot.generate_cover_letter("test_key", "model", vacancy)
-        self.assertIn("https://south-tomato-therapist-minimum.trycloudflare.com", letter)
+        self.assertIn("https://demo-resume.trycloudflare.com", letter)
 
     @patch("bot.generate_cover_letter")
     @patch("bot.send_message")
     def test_process_vacancy_score_7_triggers_auto_apply(self, mock_send, mock_letter):
         # Score 7: reaches auto_apply_min_score (7), generates letter,
         # but below notify_min_score (9) -> NO spam in Telegram!
-        mock_letter.return_value = "Здравствуйте! Мой стек Java 21... https://south-tomato-therapist-minimum.trycloudflare.com"
+        mock_letter.return_value = "Здравствуйте! Мой стек Java 21... https://demo-resume.trycloudflare.com"
         v = {
             "id": "hh_777",
             "raw_id": "777",
@@ -613,7 +615,7 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         # Fullstack JS fallback letter
         v_fs = {"title": "Junior Fullstack Developer", "company": "Acme", "role": "fullstack_js"}
         letter_fs = bot.generate_cover_letter("dummy_key", "invalid_model", v_fs)
-        self.assertIn("https://south-tomato-therapist-minimum.trycloudflare.com", letter_fs)
+        self.assertIn("https://demo-resume.trycloudflare.com", letter_fs)
         self.assertIn("https://park.shadowkek.space", letter_fs)
         self.assertIn("https://github.com/nikitos7626/park-client", letter_fs)
         self.assertIn("https://github.com/nikitos7626/Park-server", letter_fs)
@@ -621,14 +623,14 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         # Java fallback letter
         v_java = {"title": "Junior Java Developer", "company": "Acme", "role": "java"}
         letter_java = bot.generate_cover_letter("dummy_key", "invalid_model", v_java)
-        self.assertIn("https://south-tomato-therapist-minimum.trycloudflare.com", letter_java)
+        self.assertIn("https://demo-resume.trycloudflare.com", letter_java)
         self.assertIn("https://park.shadowkek.space", letter_java)
         self.assertIn("https://github.com/nikitos7626/BackendSpringBlog", letter_java)
 
         # AI & LLM fallback letter with pet project
         v_ai = {"title": "AI Engineer (LLM / RAG)", "company": "NeuroTech", "role": "ai_dev"}
         letter_ai = bot.generate_cover_letter("dummy_key", "invalid_model", v_ai)
-        self.assertIn("https://south-tomato-therapist-minimum.trycloudflare.com", letter_ai)
+        self.assertIn("https://demo-resume.trycloudflare.com", letter_ai)
         self.assertIn("https://park.shadowkek.space", letter_ai)
         self.assertIn("https://github.com/nikitos7626/mvideo-nlp", letter_ai)
         self.assertIn("Готов выполнить тестовое задание", letter_ai)
@@ -636,7 +638,7 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         # Python Backend fallback letter with pet projects
         v_py = {"title": "Junior Python Backend Developer", "company": "PyStudio", "role": "python_dev"}
         letter_py = bot.generate_cover_letter("dummy_key", "invalid_model", v_py)
-        self.assertIn("https://south-tomato-therapist-minimum.trycloudflare.com", letter_py)
+        self.assertIn("https://demo-resume.trycloudflare.com", letter_py)
         self.assertIn("https://park.shadowkek.space", letter_py)
         self.assertIn("https://github.com/nikitos7626/mvideo-nlp", letter_py)
         self.assertIn("https://github.com/nikitos7626/ExCalendar", letter_py)

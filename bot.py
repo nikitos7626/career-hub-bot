@@ -76,8 +76,8 @@ DEFAULT_CONFIG = {
     "hh_access_token": "",
     "hh_resume_id": "",
     "hh_web_cookie": "",
-    "hh_resume_hash": "b81ca639ff1137b70d0039ed1f57755649766f",
-    "resume_quick_tunnel_url": "https://south-tomato-therapist-minimum.trycloudflare.com/",
+    "hh_resume_hash": os.environ.get("HH_RESUME_HASH", ""),
+    "resume_quick_tunnel_url": os.environ.get("RESUME_QUICK_TUNNEL_URL", ""),
     "daily_digest_enabled": True,
     "last_digest_time": 0,
     "check_interval_seconds": 600,
@@ -2098,8 +2098,8 @@ def generate_cover_letter(api_key, model, vacancy):
     clean_desc = clean_html(raw_desc)[:1800].strip()
 
     cfg_data = load_config()
-    resume_url = (vacancy.get("resume_url") or cfg_data.get("resume_quick_tunnel_url") or "https://south-tomato-therapist-minimum.trycloudflare.com/").strip()
-    if not resume_url.endswith("/"):
+    resume_url = (vacancy.get("resume_url") or cfg_data.get("resume_quick_tunnel_url") or os.environ.get("RESUME_QUICK_TUNNEL_URL", "")).strip()
+    if resume_url and not resume_url.endswith("/"):
         resume_url += "/"
 
     full_text = f"{clean_title} {clean_desc}".lower()
@@ -2681,7 +2681,7 @@ def apply_hh_vacancy_web(raw_id, resume_hash, cover_letter, cookie_str):
 
     payload = {
         "vacancy_id": clean_id,
-        "resume_hash": str(resume_hash or "b81ca639ff1137b70d0039ed1f57755649766f"),
+        "resume_hash": str(resume_hash or os.environ.get("HH_RESUME_HASH", "")),
         "ignore_postponed": "true",
         "incomplete": "false",
         "lux": "true",
@@ -3272,7 +3272,7 @@ def process_vacancy_auto_apply_and_notify(v, analysis, config, token, chat_id, g
     hh_token = cfg.get("hh_access_token", "").strip().strip('"').strip("'")
     hh_resume_id = cfg.get("hh_resume_id", "").strip()
     hh_cookie = cfg.get("hh_web_cookie", "").strip()
-    hh_resume_hash = cfg.get("hh_resume_hash", "b81ca639ff1137b70d0039ed1f57755649766f").strip()
+    hh_resume_hash = cfg.get("hh_resume_hash", os.environ.get("HH_RESUME_HASH", "")).strip()
 
     cover_letter = None
 
@@ -3991,7 +3991,8 @@ def telegram_updates_worker():
                             cfg = load_config()
                             cfg["hh_web_cookie"] = new_cookie
                             if not cfg.get("hh_resume_hash"):
-                                cfg["hh_resume_hash"] = "b81ca639ff1137b70d0039ed1f57755649766f"
+                                first_hash = prof.get("resumes", [{}])[0].get("hash") if prof.get("resumes") else ""
+                                cfg["hh_resume_hash"] = first_hash or os.environ.get("HH_RESUME_HASH", "")
                             save_config(cfg)
 
                             res_count = len(prof.get("resumes", []))
@@ -4104,7 +4105,7 @@ def telegram_updates_worker():
                             if cookie:
                                 prof = check_hh_web_cookie(cookie)
                                 if prof:
-                                    res_hash = cfg.get("hh_resume_hash", "b81ca639ff1137b70d0039ed1f57755649766f")
+                                    res_hash = cfg.get("hh_resume_hash", os.environ.get("HH_RESUME_HASH", "не задан"))
                                     status_lines.append(
                                         f"🟢 <b>Веб-сессия HeadHunter: Активна</b>\n"
                                         f"👤 <b>Кандидат:</b> {prof.get('name', 'Никита Фролов')}\n"
@@ -4150,7 +4151,7 @@ def telegram_updates_worker():
                             auto_score = cfg.get("auto_apply_min_score", 7)
                             notify_score = cfg.get("notify_min_score", 9)
                             hh_tok = bool(cfg.get("hh_access_token", "").strip())
-                            resume_tunnel = cfg.get("resume_quick_tunnel_url", "https://south-tomato-therapist-minimum.trycloudflare.com")
+                            resume_tunnel = cfg.get("resume_quick_tunnel_url", os.environ.get("RESUME_QUICK_TUNNEL_URL", "не задана"))
 
                             cache = load_cache()
                             statuses = load_statuses()
@@ -5087,7 +5088,7 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
             hh_tok = config.get("hh_access_token", "").strip().strip('"').strip("'")
             hh_res_id = config.get("hh_resume_id", "").strip()
             hh_cookie = config.get("hh_web_cookie", "").strip()
-            hh_res_hash = config.get("hh_resume_hash", "b81ca639ff1137b70d0039ed1f57755649766f").strip()
+            hh_res_hash = config.get("hh_resume_hash", os.environ.get("HH_RESUME_HASH", "")).strip()
             applied_method = "manual"
 
             if vacancy.get("source") == "hh":
