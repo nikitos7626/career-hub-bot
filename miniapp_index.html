@@ -80,7 +80,7 @@
               Java Backend
             </span>
           </div>
-          <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5 truncate" id="candidateName">Никита Фролов • Junior Java Developer</p>
+          <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5 truncate" id="candidateName">Junior Java / Backend Developer</p>
         </div>
       </div>
 
@@ -97,7 +97,7 @@
         <div id="userProfileBadge" class="hidden flex items-center">
           <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="font-medium text-slate-200">Никита</span>
+            <span class="font-medium text-slate-200">Профиль</span>
             <button onclick="logout()" title="Выйти с этого устройства" class="ml-1 text-slate-400 hover:text-rose-400 p-0.5 rounded transition">
               <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
             </button>
@@ -397,7 +397,7 @@
 
       <h2 class="text-xl sm:text-2xl font-black text-white">Вход для владельца</h2>
       <p class="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
-        База вакансий и генератор откликов Career Hub защищены. Доступ разрешён исключительно Никите через Telegram.
+        База вакансий и генератор откликов Career Hub защищены. Доступ разрешён исключительно владельцу через Telegram.
       </p>
 
       <!-- Telegram Direct Link Button -->
@@ -1085,7 +1085,7 @@
           document.getElementById('settingMinScore').value = data.auto_apply_min_score || 7;
           
           if (data.hh_web_cookie_valid) {
-            badge.textContent = `🟢 Активна (${data.hh_user_name || 'Никита'})`;
+            badge.textContent = `🟢 Активна (${data.hh_user_name || 'Подключено'})`;
             badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
           } else if (data.hh_web_cookie_configured) {
             badge.textContent = '🟡 Истекла / Требует обновления';

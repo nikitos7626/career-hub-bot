@@ -2619,11 +2619,15 @@ def check_hh_web_cookie(cookie_str):
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         }
         r = requests.get(f"https://{host}/applicant/profile/me", headers=headers, timeout=12, allow_redirects=False)
-        if r.status_code == 200 and ("Никита" in r.text or "Фролов" in r.text or "applicant" in r.text):
+        if r.status_code == 200 and ("applicant" in r.text or "resume" in r.text or "profile" in r.text):
             resumes = list(set(re.findall(r'/resume/([a-f0-9]{38})', r.text)))
+            name_m = re.search(r'data-qa="(?:applicant|profile)-name">([^<]+)<', r.text) or re.search(r'"firstName":"([^"]+)".*?"lastName":"([^"]+)"', r.text)
+            c_name = "Соискатель"
+            if name_m:
+                c_name = name_m.group(1).strip() if len(name_m.groups()) == 1 else f"{name_m.group(1)} {name_m.group(2)}"
             return {
                 "ok": True,
-                "name": "Никита Фролов",
+                "name": c_name,
                 "host": host,
                 "resumes": resumes
             }
@@ -3998,7 +4002,7 @@ def telegram_updates_worker():
                             res_count = len(prof.get("resumes", []))
                             send_message(token, msg_chat_id, 
                                 f"🎉 <b>Веб-сессия HeadHunter успешно подключена!</b>\n\n"
-                                f"👤 <b>Кандидат:</b> {html.escape(prof.get('name', 'Никита Фролов'))}\n"
+                                f"👤 <b>Кандидат:</b> {html.escape(prof.get('name', 'Соискатель'))}\n"
                                 f"🌐 <b>Регион/Хост:</b> <code>{html.escape(prof.get('host', 'volgograd.hh.ru'))}</code>\n"
                                 f"📄 <b>Активное резюме:</b> Java-разработчик (<code>{cfg.get('hh_resume_hash', '')}</code>)\n"
                                 f"📋 <b>Резюме в профиле:</b> {res_count}\n\n"
@@ -4108,7 +4112,7 @@ def telegram_updates_worker():
                                     res_hash = cfg.get("hh_resume_hash", os.environ.get("HH_RESUME_HASH", "не задан"))
                                     status_lines.append(
                                         f"🟢 <b>Веб-сессия HeadHunter: Активна</b>\n"
-                                        f"👤 <b>Кандидат:</b> {prof.get('name', 'Никита Фролов')}\n"
+                                        f"👤 <b>Кандидат:</b> {prof.get('name', 'Соискатель')}\n"
                                         f"📄 <b>Резюме:</b> Java-разработчик (<code>{res_hash}</code>)\n"
                                         f"🌐 <b>Хост:</b> {prof.get('host', 'volgograd.hh.ru')}"
                                     )
@@ -4251,7 +4255,7 @@ def telegram_updates_worker():
 
                         if msg_text in ["/start", "/help", "/jobs"] and msg_chat_id:
                             welcome_text = (
-                                "👋 <b>Привет, Никита!</b>\n\n"
+                                "👋 <b>Привет!</b>\n\n"
                                 "Я твой персональный AI-ассистент по поиску вакансий и авто-откликам.\n\n"
                                 "⚡ <b>Умная система фильтрации и авто-откликов:</b>\n"
                                 "• 🔇 <b>Без спама:</b> Вакансии со средним скором (6-8/10) тихо сохраняются в Career Hub без лишних уведомлений.\n"
@@ -4869,7 +4873,7 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 hh_cookie_info = check_hh_web_cookie(hh_cookie)
                 if hh_cookie_info and hh_cookie_info.get("ok"):
                     hh_cookie_valid = True
-                    hh_user_name = hh_cookie_info.get("name", "Никита Фролов")
+                    hh_user_name = hh_cookie_info.get("name", "Соискатель")
 
             resp_data = {
                 "ok": True,
@@ -5221,7 +5225,7 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({
                     "ok": True,
                     "valid": True,
-                    "name": res.get("name", "Никита Фролов"),
+                    "name": res.get("name", "Соискатель"),
                     "host": res.get("host", "hh.ru"),
                     "resumes_count": len(res.get("resumes", []))
                 }, ensure_ascii=False).encode("utf-8"))
