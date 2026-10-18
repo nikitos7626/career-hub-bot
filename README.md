@@ -25,41 +25,10 @@
 ## 🏗️ Архитектура пайплайна
 
 ```mermaid
-flowchart TD
-    subgraph Sources ["🌐 Мультиплатформенный сбор (9 источников)"]
-        S1["HeadHunter API & Web"]
-        S2["Хабр Карьера RSS"]
-        S3["SuperJob API"]
-        S4["Работа.ру Client API"]
-        S5["LinkedIn Guest Engine"]
-        S6["СЕТИ & Remotive"]
-        S7["IT Telegram каналы"]
-    end
-
-    subgraph ETL ["⚙️ Фильтрация & Дедупликация"]
-        F1["Strict Pre-Filter (минус-слова, Senior/Lead отсев)"]
-        F2["Кэширование & TTL дедупликация"]
-        F3["Чередование очереди с защитой от Rate Limit"]
-    end
-
-    subgraph AI ["🧠 AI Core (Groq Cloud)"]
-        LLM["Qwen 2.5 32B / LLaMA 3.3 70B"]
-        Score["Матчинг стека & скоринг (1–10)"]
-        Letter["Генерация инженерного сопроводительного"]
-    end
-
-    subgraph Delivery ["📱 Клиентский слой & Автоматизация"]
-        TGBot["Telegram Bot (пуши для вакансий 8+ баллов)"]
-        TMA["Telegram Mini App (Канбан-CRM для откликов)"]
-        AutoApply["HeadHunter Web Session Auto-Apply"]
-        Tracker["Мониторинг статусов & очистка отказов"]
-    end
-
-    Sources --> ETL
-    ETL --> AI
-    AI --> Delivery
-    TMA --> AutoApply
-    AutoApply --> Tracker
+flowchart LR
+    A["🌐 9 IT-площадок<br/>(HH, Хабр, TG, SuperJob)"] --> B["⚙️ Пре-фильтр<br/>(отсев Senior/1C, TTL)"]
+    B --> C["🧠 Groq AI<br/>(скоринг 1–10 + Cover Letters)"]
+    C --> D["🚀 Telegram Mini App<br/>(CRM воронка & авто-отклик)"]
 ```
 
 ---
