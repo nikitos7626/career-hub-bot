@@ -62,40 +62,50 @@
   <div id="app" class="max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
 
     <!-- Header & Profile (Wide Responsive Bar) -->
-    <header class="flex items-center justify-between pb-4 sm:pb-5 border-b border-slate-800/80">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 flex-shrink-0">
+    <header class="flex items-center justify-between pb-3 sm:pb-5 border-b border-slate-800/80 gap-2">
+      <!-- Left brand & profile -->
+      <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-md shadow-indigo-500/20 flex-shrink-0">
           <i data-lucide="compass" class="w-5 h-5 sm:w-6 sm:h-6 text-white"></i>
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-base sm:text-xl font-extrabold text-white leading-tight">
-              Career Hub AI
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5 flex-nowrap">
+            <h1 class="text-sm sm:text-lg font-bold text-white tracking-tight whitespace-nowrap">
+              Career Hub
             </h1>
-            <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold uppercase tracking-wider border border-indigo-500/30">Java Backend</span>
+            <span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-semibold uppercase border border-indigo-500/30 flex-shrink-0">
+              AI
+            </span>
+            <span class="hidden md:inline-flex text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-slate-800/90 text-slate-300 font-medium border border-slate-700/80 flex-shrink-0">
+              Java Backend
+            </span>
           </div>
-          <p class="text-xs sm:text-sm text-slate-400 mt-0.5" id="candidateName">Никита Фролов • Junior Java Developer</p>
+          <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5 truncate" id="candidateName">Никита Фролов • Junior Java Developer</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <div id="userProfileBadge" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span class="font-medium text-slate-200">Никита</span>
-          <button onclick="logout()" title="Выйти с этого устройства" class="ml-1 text-slate-400 hover:text-rose-400 p-1 rounded hover:bg-slate-800 transition">
-            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-          </button>
-        </div>
-        <button onclick="logout()" title="Выйти" class="sm:hidden p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-rose-400 border border-slate-800 transition">
-          <i data-lucide="log-out" class="w-4 h-4"></i>
-        </button>
-        <button onclick="refreshData()" id="refreshBtn" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center gap-2 text-xs font-medium shadow">
+
+      <!-- Right actions toolbar -->
+      <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+        <button onclick="refreshData()" id="refreshBtn" title="Обновить ленту вакансий" class="w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-xl bg-slate-900/90 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs font-medium shadow-sm">
           <i data-lucide="rotate-cw" class="w-4 h-4 text-slate-400" id="refreshIcon"></i>
-          <span class="hidden sm:inline">Обновить ленту</span>
+          <span class="hidden sm:inline">Обновить</span>
         </button>
-        <button onclick="openSettingsModal()" id="settingsBtn" title="Настройки автоотклика и сессии HH" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center gap-2 text-xs font-medium shadow">
+        <button onclick="openSettingsModal()" id="settingsBtn" title="Настройки автоотклика и сессии HH" class="w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-xl bg-slate-900/90 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs font-medium shadow-sm">
           <i data-lucide="settings" class="w-4 h-4 text-slate-400"></i>
           <span class="hidden sm:inline">Настройки</span>
         </button>
+        <div id="userProfileBadge" class="hidden flex items-center">
+          <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="font-medium text-slate-200">Никита</span>
+            <button onclick="logout()" title="Выйти с этого устройства" class="ml-1 text-slate-400 hover:text-rose-400 p-0.5 rounded transition">
+              <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <button onclick="logout()" title="Выйти" class="md:hidden w-9 h-9 rounded-xl bg-slate-900/90 hover:bg-slate-850 text-slate-400 hover:text-rose-400 border border-slate-800 active:scale-95 transition flex items-center justify-center">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -359,13 +369,19 @@
         </div>
       </div>
 
-      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
-        <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition">
-          Закрыть
+      <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+        <button onclick="logout(); closeSettingsModal();" class="px-3 py-2 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 text-xs font-medium transition flex items-center gap-1.5">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span>Выйти</span>
         </button>
-        <button onclick="saveAllSettings()" id="saveAllSettingsBtn" class="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition active:scale-95">
-          Сохранить всё
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition">
+            Закрыть
+          </button>
+          <button onclick="saveAllSettings()" id="saveAllSettingsBtn" class="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition active:scale-95">
+            Сохранить всё
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -528,6 +544,7 @@
             setAuthToken(data.token);
             hideAuthModal();
             document.getElementById('userProfileBadge')?.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
             loadData();
           } else if (data.status === 'expired') {
             requestLoginSession();
@@ -1248,6 +1265,7 @@
           if (data.ok) {
             hideAuthModal();
             document.getElementById('userProfileBadge')?.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
             loadData();
             setInterval(loadData, 60000);
             return;
