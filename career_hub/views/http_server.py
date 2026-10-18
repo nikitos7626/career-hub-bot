@@ -100,11 +100,15 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
             path = "/"
 
         if path in ["/", "/index.html"]:
-            html_file = _get_bot_ref("MINIAPP_HTML_PATH", MINIAPP_HTML_PATH)
-            if not os.path.exists(html_file):
-                html_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "miniapp_index.html")
-            if not os.path.exists(html_file):
-                html_file = "/app/miniapp_index.html"
+            repo_html = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "miniapp_index.html")
+            container_html = "/app/miniapp_index.html"
+            configured_html = _get_bot_ref("MINIAPP_HTML_PATH", MINIAPP_HTML_PATH)
+
+            html_file = None
+            for cand in [container_html, repo_html, configured_html]:
+                if cand and os.path.exists(cand):
+                    html_file = cand
+                    break
 
             if os.path.exists(html_file):
                 try:

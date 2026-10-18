@@ -230,20 +230,20 @@
   </div>
 
   <!-- Cover Letter Drawer / Modal (Adaptive: centered modal on PC) -->
-  <div id="coverLetterModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+  <div id="coverLetterModal" onclick="if(event.target === this) closeCoverLetterModal()" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl modal-enter max-h-[90vh] flex flex-col">
       <div class="flex items-center justify-between pb-3 sm:pb-4 border-b border-slate-800">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
-            <i data-lucide="file-text" class="w-5 h-5"></i>
+            <i data-lucide="file-text" class="w-5 h-5 pointer-events-none"></i>
           </div>
           <div>
             <h3 class="text-sm sm:text-base font-bold text-white">Сопроводительное письмо</h3>
             <p class="text-[11px] sm:text-xs text-slate-400 truncate max-w-[280px] sm:max-w-md" id="modalVacancyTitle">Вакансия</p>
           </div>
         </div>
-        <button onclick="closeCoverLetterModal()" class="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 active:scale-95 transition">
-          <i data-lucide="x" class="w-4 h-4"></i>
+        <button onclick="closeCoverLetterModal()" class="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 active:scale-95 transition cursor-pointer" title="Закрыть">
+          <i data-lucide="x" class="w-4 h-4 pointer-events-none"></i>
         </button>
       </div>
 
@@ -257,7 +257,7 @@
         <div id="letterBoxWrapper" class="relative">
           <textarea id="letterContentBox" rows="9" class="w-full p-4 sm:p-5 rounded-2xl bg-slate-950 border border-slate-800 text-xs sm:text-sm text-slate-200 leading-relaxed font-sans resize-none focus:outline-none focus:border-indigo-500/50 shadow-inner custom-scroll select-text" placeholder="Текст отклика появится здесь..."></textarea>
           <div class="text-[10px] text-slate-500 text-right mt-1.5 flex items-center justify-end gap-1">
-            <i data-lucide="edit-3" class="w-3 h-3"></i>
+            <i data-lucide="edit-3" class="w-3 h-3 pointer-events-none"></i>
             <span>Текст можно отредактировать перед копированием</span>
           </div>
         </div>
@@ -265,26 +265,30 @@
 
       <!-- Modal Actions -->
       <div class="space-y-2.5 pt-3 border-t border-slate-800">
+        <button id="modalAutoApplyBtn" onclick="autoApplyFromModal()" class="hidden w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-rose-600/25 transition active:scale-95 cursor-pointer">
+          <i data-lucide="zap" class="w-4 h-4 pointer-events-none"></i>
+          <span id="modalAutoApplyBtnText" class="pointer-events-none">Откликнуться на HeadHunter в 1 клик</span>
+        </button>
         <div class="grid grid-cols-2 gap-3">
-          <button onclick="copyCoverLetter()" id="copyBtn" class="py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 active:scale-95 transition shadow-lg shadow-indigo-600/30">
-            <i data-lucide="copy" class="w-4 h-4"></i>
-            <span id="copyBtnText">Скопировать</span>
+          <button onclick="copyCoverLetter()" id="copyBtn" class="py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 active:scale-95 transition shadow-lg shadow-indigo-600/30 cursor-pointer">
+            <i data-lucide="copy" class="w-4 h-4 pointer-events-none"></i>
+            <span id="copyBtnText" class="pointer-events-none">Скопировать</span>
           </button>
-          <a id="modalApplyLink" href="#" target="_blank" onclick="event.preventDefault(); openLink(this.href);" class="py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 active:scale-95 transition">
-            <i data-lucide="external-link" class="w-4 h-4"></i>
-            <span>Перейти к вакансии</span>
+          <a id="modalApplyLink" href="#" target="_blank" onclick="event.preventDefault(); openLink(this.href);" class="py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer">
+            <i data-lucide="external-link" class="w-4 h-4 pointer-events-none"></i>
+            <span class="pointer-events-none">Перейти к вакансии</span>
           </a>
         </div>
-        <button onclick="markAsAppliedFromModal()" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition">
-          <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
-          <span>Отметить как "Откликнулся"</span>
+        <button onclick="markAsAppliedFromModal()" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer">
+          <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400 pointer-events-none"></i>
+          <span class="pointer-events-none">Отметить как "Откликнулся"</span>
         </button>
       </div>
     </div>
   </div>
 
   <!-- Settings & Cookie Modal (Desktop & TMA) -->
-  <div id="settingsModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+  <div id="settingsModal" onclick="if(event.target === this) closeSettingsModal()" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl modal-enter max-h-[90vh] overflow-y-auto custom-scroll">
       <div class="flex items-center justify-between pb-4 border-b border-slate-800">
         <div class="flex items-center gap-2.5">
@@ -461,6 +465,27 @@
         if (tg.setBackgroundColor) tg.setBackgroundColor('#0b1120');
       } catch (e) {}
     }
+
+    // Тактильный отклик (Haptic Feedback) с безопасным фоллбеком для браузера
+    function haptic(type = 'light') {
+      try {
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+          const hf = window.Telegram.WebApp.HapticFeedback;
+          if (['light', 'medium', 'heavy', 'rigid', 'soft'].includes(type)) {
+            hf.impactOccurred(type);
+          } else if (['error', 'success', 'warning'].includes(type)) {
+            hf.notificationOccurred(type);
+          } else {
+            hf.selectionChanged();
+          }
+        } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(type === 'heavy' ? 25 : 10);
+        }
+      } catch (e) {
+        // Безопасно игнорируем любые ошибки haptic feedback
+      }
+    }
+    window.haptic = haptic;
 
     // Состояние авторизации
     let currentAuthSessionId = null;
@@ -909,47 +934,47 @@
           <!-- Action Buttons Bar (Always aligned at bottom) -->
           <div class="flex items-center justify-between gap-2 pt-3 border-t border-slate-800/80 mt-3">
             <!-- Left: Cover letter -->
-            <button onclick="openCoverLetter('${v.id}')" class="px-3 py-2 rounded-xl bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition shadow-sm">
-              <i data-lucide="file-edit" class="w-4 h-4"></i>
-              <span>Отклик</span>
+            <button onclick="openCoverLetter('${v.id}')" title="Сформировать отклик" class="px-3 py-2 rounded-xl bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition shadow-sm cursor-pointer">
+              <i data-lucide="file-edit" class="w-4 h-4 pointer-events-none"></i>
+              <span class="pointer-events-none">Отклик</span>
             </button>
 
             <!-- Status switches -->
             <div class="flex items-center gap-1.5">
               ${vStatus !== 'saved' ? `
-                <button onclick="changeStatus('${v.id}', 'saved')" title="В планы" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 active:scale-90 transition">
-                  <i data-lucide="star" class="w-4 h-4"></i>
+                <button onclick="changeStatus('${v.id}', 'saved')" title="В планы" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 active:scale-90 transition cursor-pointer">
+                  <i data-lucide="star" class="w-4 h-4 pointer-events-none"></i>
                 </button>
               ` : `
-                <button onclick="changeStatus('${v.id}', 'inbox')" title="Вернуть в новые" class="p-2 rounded-xl bg-amber-500/20 text-amber-400 active:scale-90 transition">
-                  <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                <button onclick="changeStatus('${v.id}', 'inbox')" title="Вернуть в новые" class="p-2 rounded-xl bg-amber-500/20 text-amber-400 active:scale-90 transition cursor-pointer">
+                  <i data-lucide="star" class="w-4 h-4 fill-amber-400 pointer-events-none"></i>
                 </button>
               `}
 
               ${vStatus !== 'applied' ? `
-                <button onclick="changeStatus('${v.id}', 'applied')" title="Откликнулся" class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 text-xs font-semibold flex items-center gap-1 active:scale-95 transition">
-                  <i data-lucide="send" class="w-3.5 h-3.5"></i>
-                  <span>Откликнулся</span>
+                <button onclick="changeStatus('${v.id}', 'applied')" title="Откликнулся" class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 text-xs font-semibold flex items-center gap-1 active:scale-95 transition cursor-pointer">
+                  <i data-lucide="send" class="w-3.5 h-3.5 pointer-events-none"></i>
+                  <span class="pointer-events-none">Откликнулся</span>
                 </button>
               ` : `
-                <button onclick="changeStatus('${v.id}', 'interview')" title="Пригласили на интервью" class="px-2.5 py-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1 active:scale-95 transition">
-                  <i data-lucide="phone" class="w-3.5 h-3.5"></i>
-                  <span>Интервью</span>
+                <button onclick="changeStatus('${v.id}', 'interview')" title="Пригласили на интервью" class="px-2.5 py-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1 active:scale-95 transition cursor-pointer">
+                  <i data-lucide="phone" class="w-3.5 h-3.5 pointer-events-none"></i>
+                  <span class="pointer-events-none">Интервью</span>
                 </button>
               `}
 
               ${vStatus !== 'archived' ? `
-                <button onclick="changeStatus('${v.id}', 'archived')" title="В архив" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-500 hover:text-red-400 active:scale-90 transition">
-                  <i data-lucide="x" class="w-4 h-4"></i>
+                <button onclick="changeStatus('${v.id}', 'archived')" title="В архив" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-500 hover:text-red-400 active:scale-90 transition cursor-pointer">
+                  <i data-lucide="x" class="w-4 h-4 pointer-events-none"></i>
                 </button>
               ` : `
-                <button onclick="changeStatus('${v.id}', 'inbox')" title="Восстановить" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-400 active:scale-90 transition">
-                  <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                <button onclick="changeStatus('${v.id}', 'inbox')" title="Восстановить" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-400 active:scale-90 transition cursor-pointer">
+                  <i data-lucide="rotate-ccw" class="w-4 h-4 pointer-events-none"></i>
                 </button>
               `}
 
-              <a href="${v.link}" target="_blank" onclick="event.preventDefault(); openLink(this.href);" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white active:scale-90 transition" title="Открыть вакансию">
-                <i data-lucide="external-link" class="w-4 h-4"></i>
+              <a href="${v.link}" target="_blank" onclick="event.preventDefault(); openLink(this.href);" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white active:scale-90 transition cursor-pointer" title="Открыть вакансию">
+                <i data-lucide="external-link" class="w-4 h-4 pointer-events-none"></i>
               </a>
             </div>
           </div>
@@ -958,15 +983,17 @@
         container.appendChild(card);
       });
 
-      lucide.createIcons();
+      if (window.lucide) lucide.createIcons();
     }
 
     // Изменение статуса
-    async function changeStatus(vId, newStatus) {
+    async function changeStatus(vId, newStatus, coverLetter = null) {
       haptic();
-      statuses[vId] = {
+      const stringId = String(vId);
+      statuses[stringId] = {
         status: newStatus,
-        applied_at: newStatus === 'applied' ? new Date().toISOString() : statuses[vId]?.applied_at
+        applied_at: newStatus === 'applied' ? (statuses[stringId]?.applied_at || new Date().toISOString()) : statuses[stringId]?.applied_at,
+        cover_letter: coverLetter || statuses[stringId]?.cover_letter
       };
       
       // Локальный пересчет
@@ -975,11 +1002,19 @@
 
       // Отправка на бэкенд
       try {
-        await fetch('./api/status', {
+        const payload = { id: stringId, status: newStatus };
+        if (coverLetter) payload.cover_letter = coverLetter;
+        const resp = await fetch('./api/status', {
           method: 'POST',
           headers: authHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ id: vId, status: newStatus })
+          body: JSON.stringify(payload)
         });
+        if (resp.status === 401 || resp.status === 403) {
+          clearAuthToken();
+          showAuthModal();
+          requestLoginSession();
+          return;
+        }
       } catch (e) {
         console.error('Ошибка сохранения статуса:', e);
       }
@@ -997,18 +1032,30 @@
     // Сопроводительное письмо модалка
     async function openCoverLetter(vId) {
       haptic();
-      const vacancy = allVacancies.find(v => v.id === vId);
+      const vacancy = allVacancies.find(v => String(v.id) === String(vId));
       if (!vacancy) return;
 
       activeVacancyForModal = vacancy;
-      document.getElementById('modalVacancyTitle').textContent = `${vacancy.title} (${vacancy.company})`;
-      document.getElementById('modalApplyLink').href = vacancy.link;
+      document.getElementById('modalVacancyTitle').textContent = `${vacancy.title || 'Вакансия'} (${vacancy.company || ''})`;
+      document.getElementById('modalApplyLink').href = vacancy.link || '#';
 
       const modal = document.getElementById('coverLetterModal');
       const box = document.getElementById('letterContentBox');
       const wrapper = document.getElementById('letterBoxWrapper');
       const loading = document.getElementById('letterLoading');
       const copyBtnText = document.getElementById('copyBtnText');
+      const autoBtn = document.getElementById('modalAutoApplyBtn');
+      const autoBtnText = document.getElementById('modalAutoApplyBtnText');
+
+      if (autoBtn) {
+        if (vacancy.source === 'hh') {
+          autoBtn.classList.remove('hidden');
+          autoBtn.disabled = false;
+          if (autoBtnText) autoBtnText.textContent = 'Откликнуться на HeadHunter в 1 клик';
+        } else {
+          autoBtn.classList.add('hidden');
+        }
+      }
 
       copyBtnText.textContent = 'Скопировать';
       box.value = '';
@@ -1022,8 +1069,14 @@
           headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ id: vId })
         });
+        if (resp.status === 401 || resp.status === 403) {
+          clearAuthToken();
+          showAuthModal();
+          requestLoginSession();
+          return;
+        }
         const data = await resp.json();
-        box.value = data.cover_letter || 'Не удалось сформировать письмо.';
+        box.value = data.cover_letter || (data.error ? ('Ошибка: ' + data.error) : 'Не удалось сформировать письмо.');
       } catch (e) {
         box.value = 'Ошибка формирования отклика. Попробуйте ещё раз.';
       } finally {
@@ -1053,9 +1106,47 @@
       }
     }
 
+    async function autoApplyFromModal() {
+      if (!activeVacancyForModal) return;
+      haptic('medium');
+      const btn = document.getElementById('modalAutoApplyBtn');
+      const btnText = document.getElementById('modalAutoApplyBtnText');
+      const letter = document.getElementById('letterContentBox').value.trim();
+      
+      btn.disabled = true;
+      btnText.textContent = 'Отправка отклика...';
+      
+      try {
+        const resp = await fetch('./api/auto_apply', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ id: activeVacancyForModal.id, cover_letter: letter })
+        });
+        const data = await resp.json();
+        if (data.ok) {
+          btnText.textContent = 'Отклик отправлен! ✅';
+          changeStatus(activeVacancyForModal.id, 'applied', letter);
+          setTimeout(() => {
+            closeCoverLetterModal();
+            btn.disabled = false;
+            btnText.textContent = 'Откликнуться на HeadHunter в 1 клик';
+          }, 1200);
+        } else {
+          alert('Ошибка отклика: ' + (data.error || 'Не удалось отправить'));
+          btn.disabled = false;
+          btnText.textContent = 'Попробовать снова';
+        }
+      } catch (e) {
+        alert('Сетевая ошибка при отправке отклика.');
+        btn.disabled = false;
+        btnText.textContent = 'Попробовать снова';
+      }
+    }
+
     function markAsAppliedFromModal() {
       if (activeVacancyForModal) {
-        changeStatus(activeVacancyForModal.id, 'applied');
+        const text = document.getElementById('letterContentBox')?.value || '';
+        changeStatus(activeVacancyForModal.id, 'applied', text);
         closeCoverLetterModal();
       }
     }
@@ -1064,6 +1155,14 @@
       if (tg?.openLink) tg.openLink(url);
       else window.open(url, '_blank');
     }
+
+    // Закрытие модалок по Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeCoverLetterModal();
+        closeSettingsModal();
+      }
+    });
 
     // Settings & Cookie Modal
     async function openSettingsModal() {
