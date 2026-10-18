@@ -14,7 +14,8 @@ services:
       - ./career_hub:/app/career_hub
       - ./miniapp_index.html:/app/miniapp_index.html
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       - TZ=Europe/Moscow
       - PYTHONUNBUFFERED=1
