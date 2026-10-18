@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Career Hub TMA - Мониторинг вакансий</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            tgBg: 'var(--tg-theme-bg-color, #0f172a)',
+            tgSecBg: 'var(--tg-theme-secondary-bg-color, #1e293b)',
+            tgText: 'var(--tg-theme-text-color, #f8fafc)',
+            tgHint: 'var(--tg-theme-hint-color, #94a3b8)',
+            tgLink: 'var(--tg-theme-link-color, #38bdf8)',
+            tgBtn: 'var(--tg-theme-button-color, #6366f1)',
+            tgBtnText: 'var(--tg-theme-button-text-color, #ffffff)'
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      background-color: var(--tg-theme-bg-color, #0b1120);
+      color: var(--tg-theme-text-color, #f8fafc);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      display: none;
+    }
+    .custom-scroll {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .modal-enter {
+      animation: modalSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes modalSlide {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-20 select-none bg-slate-950 text-slate-100">
+  <div id="app" class="max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+
+    <!-- Header & Profile (Wide Responsive Bar) -->
+    <header class="flex items-center justify-between pb-4 sm:pb-5 border-b border-slate-800/80">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 flex-shrink-0">
+          <i data-lucide="compass" class="w-5 h-5 sm:w-6 sm:h-6 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-xl font-extrabold text-white leading-tight">
+              Career Hub AI
+            </h1>
+            <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold uppercase tracking-wider border border-indigo-500/30">Java Backend</span>
+          </div>
+          <p class="text-xs sm:text-sm text-slate-400 mt-0.5" id="candidateName">Никита Фролов • Junior Java Developer</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div id="userProfileBadge" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="font-medium text-slate-200">Никита</span>
+          <button onclick="logout()" title="Выйти с этого устройства" class="ml-1 text-slate-400 hover:text-rose-400 p-1 rounded hover:bg-slate-800 transition">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+        <button onclick="logout()" title="Выйти" class="sm:hidden p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-rose-400 border border-slate-800 transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+        <button onclick="refreshData()" id="refreshBtn" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center gap-2 text-xs font-medium shadow">
+          <i data-lucide="rotate-cw" class="w-4 h-4 text-slate-400" id="refreshIcon"></i>
+          <span class="hidden sm:inline">Обновить ленту</span>
+        </button>
+        <button onclick="openSettingsModal()" id="settingsBtn" title="Настройки автоотклика и сессии HH" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center gap-2 text-xs font-medium shadow">
+          <i data-lucide="settings" class="w-4 h-4 text-slate-400"></i>
+          <span class="hidden sm:inline">Настройки</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Stats Bar (Responsive Metric Cards) -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4 my-4 sm:my-5">
+      <div onclick="switchTab('inbox')" class="p-3 sm:p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800/80 hover:border-indigo-500/30 cursor-pointer active:scale-98 transition shadow-sm" id="statInboxCard">
+        <div class="flex items-center justify-between">
+          <span class="text-xs sm:text-sm text-slate-400 font-medium">📥 Новые</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-semibold">Inbox</span>
+        </div>
+        <div class="text-2xl sm:text-3xl font-black text-indigo-400 mt-1 sm:mt-2" id="statInbox">0</div>
+      </div>
+      <div onclick="switchTab('saved')" class="p-3 sm:p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800/80 hover:border-amber-500/30 cursor-pointer active:scale-98 transition shadow-sm" id="statSavedCard">
+        <div class="flex items-center justify-between">
+          <span class="text-xs sm:text-sm text-slate-400 font-medium">⭐ В планах</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-semibold">Saved</span>
+        </div>
+        <div class="text-2xl sm:text-3xl font-black text-amber-400 mt-1 sm:mt-2" id="statSaved">0</div>
+      </div>
+      <div onclick="switchTab('applied')" class="p-3 sm:p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800/80 hover:border-emerald-500/30 cursor-pointer active:scale-98 transition shadow-sm" id="statAppliedCard">
+        <div class="flex items-center justify-between">
+          <span class="text-xs sm:text-sm text-slate-400 font-medium">🚀 Отклики</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-semibold">Sent</span>
+        </div>
+        <div class="text-2xl sm:text-3xl font-black text-emerald-400 mt-1 sm:mt-2" id="statApplied">0</div>
+      </div>
+      <div onclick="switchTab('interview')" class="p-3 sm:p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800/80 hover:border-cyan-500/30 cursor-pointer active:scale-98 transition shadow-sm" id="statInterviewCard">
+        <div class="flex items-center justify-between">
+          <span class="text-xs sm:text-sm text-slate-400 font-medium">📞 Интервью</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-semibold">Calls</span>
+        </div>
+        <div class="text-2xl sm:text-3xl font-black text-cyan-400 mt-1 sm:mt-2" id="statInterview">0</div>
+      </div>
+    </div>
+
+    <!-- Status Tabs Nav (Wide segmented control) -->
+    <div class="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-900/90 border border-slate-800/80 custom-scroll overflow-x-auto text-xs font-medium mb-4 sm:w-fit">
+      <button onclick="switchTab('inbox')" id="tab_inbox" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-2 bg-indigo-600 text-white shadow-sm font-semibold">
+        <i data-lucide="inbox" class="w-4 h-4"></i> Новые
+      </button>
+      <button onclick="switchTab('saved')" id="tab_saved" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-2 text-slate-400 hover:text-white">
+        <i data-lucide="star" class="w-4 h-4"></i> В планах
+      </button>
+      <button onclick="switchTab('applied')" id="tab_applied" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-2 text-slate-400 hover:text-white">
+        <i data-lucide="send" class="w-4 h-4"></i> Отклики
+      </button>
+      <button onclick="switchTab('interview')" id="tab_interview" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-2 text-slate-400 hover:text-white">
+        <i data-lucide="phone-call" class="w-4 h-4"></i> Интервью
+      </button>
+      <button onclick="switchTab('archived')" id="tab_archived" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-2 text-slate-400 hover:text-white">
+        <i data-lucide="archive" class="w-4 h-4"></i> Архив
+      </button>
+    </div>
+
+    <!-- Filters Section (Unified Desktop Card) -->
+    <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-900/70 border border-slate-800/80 mb-5 space-y-3 shadow-sm">
+      <!-- Search -->
+      <div class="relative">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5"></i>
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="Поиск по стеку, компании, названию, зарплате..." 
+          oninput="applyFilters()"
+          class="w-full pl-10 pr-9 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition shadow-inner"
+        >
+        <button onclick="clearSearch()" id="clearSearchBtn" class="hidden absolute right-3 top-3 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Quick Role & Source Filters Toolbar -->
+      <div class="flex items-center gap-2 flex-wrap text-xs">
+        <!-- Roles -->
+        <button onclick="setRoleFilter('all')" id="rf_all" class="rf-btn px-3 py-1.5 rounded-xl border bg-indigo-600/20 border-indigo-500 text-indigo-300 font-semibold whitespace-nowrap transition">Все роли</button>
+        <button onclick="setRoleFilter('java')" id="rf_java" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">☕ Java Backend</button>
+        <button onclick="setRoleFilter('java_ai')" id="rf_java_ai" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🤖 Java AI</button>
+        <button onclick="setRoleFilter('vpn_dev')" id="rf_vpn_dev" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🛡️ VPN (Xray)</button>
+        <button onclick="setRoleFilter('backend')" id="rf_backend" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">⚡ Backend Dev</button>
+        
+        <div class="hidden sm:block h-5 w-px bg-slate-800 mx-1"></div>
+
+        <!-- Sources -->
+        <button onclick="setSourceFilter('all')" id="sf_all" class="sf-btn px-3 py-1.5 rounded-xl border bg-slate-800 border-slate-700 text-slate-300 font-medium whitespace-nowrap transition">Все площадки</button>
+        <button onclick="setSourceFilter('hh')" id="sf_hh" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🔴 HeadHunter</button>
+        <button onclick="setSourceFilter('habr')" id="sf_habr" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🔵 Хабр</button>
+        <button onclick="setSourceFilter('rabota')" id="sf_rabota" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🔴 Работа.ру</button>
+        <button onclick="setSourceFilter('trudvsem')" id="sf_trudvsem" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🇷🇺 Работа России</button>
+        <button onclick="setSourceFilter('getmatch')" id="sf_getmatch" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🟣 GetMatch</button>
+        <button onclick="setSourceFilter('vseti')" id="sf_vseti" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🌐 СЕТИ</button>
+        <button onclick="setSourceFilter('remotive')" id="sf_remotive" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🟢 Удалёнка (Remote)</button>
+        <button onclick="setSourceFilter('superjob')" id="sf_superjob" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">💼 SuperJob</button>
+        <button onclick="setSourceFilter('linkedin')" id="sf_linkedin" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🌐 LinkedIn</button>
+        <button onclick="setSourceFilter('telegram')" id="sf_telegram" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">📢 Telegram-каналы</button>
+
+        <div class="hidden sm:block h-5 w-px bg-slate-800 mx-1"></div>
+
+        <!-- Score 8+ toggle -->
+        <button onclick="toggleTopScore()" id="scoreToggleBtn" class="px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap flex items-center gap-1.5 hover:text-white transition">
+          <span>🔥 8+ балл</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Vacancy List Feed (Adaptive Desktop Grid: 1 col on mobile, 2 cols on PC) -->
+    <div id="vacanciesContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-5">
+      <!-- Loading Skeleton -->
+      <div id="loadingIndicator" class="col-span-full text-center py-16">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mb-3"></div>
+        <p class="text-xs text-slate-400 font-medium">Загрузка вакансий и AI-статусов...</p>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="hidden text-center py-20 px-4">
+      <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 shadow-inner">
+        <i data-lucide="inbox" class="w-8 h-8"></i>
+      </div>
+      <h3 class="text-base font-bold text-white mb-1" id="emptyTitle">В этой категории пусто</h3>
+      <p class="text-xs text-slate-400 max-w-sm mx-auto" id="emptyDesc">Новые проверенные вакансии появятся здесь по мере мониторинга.</p>
+    </div>
+
+  </div>
+
+  <!-- Cover Letter Drawer / Modal (Adaptive: centered modal on PC) -->
+  <div id="coverLetterModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl modal-enter max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 sm:pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+            <i data-lucide="file-text" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-white">Сопроводительное письмо</h3>
+            <p class="text-[11px] sm:text-xs text-slate-400 truncate max-w-[280px] sm:max-w-md" id="modalVacancyTitle">Вакансия</p>
+          </div>
+        </div>
+        <button onclick="closeCoverLetterModal()" class="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 active:scale-95 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Letter Content -->
+      <div class="my-4 flex-1 overflow-y-auto custom-scroll">
+        <div id="letterLoading" class="hidden py-12 text-center">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mb-3"></div>
+          <p class="text-xs text-slate-300 font-medium">AI составляет персонализированный отклик под стек вакансии...</p>
+          <p class="text-[11px] text-slate-500 mt-1">Деловой инженерный стиль • акцент на практический опыт</p>
+        </div>
+        <div id="letterBoxWrapper" class="relative">
+          <textarea id="letterContentBox" rows="9" class="w-full p-4 sm:p-5 rounded-2xl bg-slate-950 border border-slate-800 text-xs sm:text-sm text-slate-200 leading-relaxed font-sans resize-none focus:outline-none focus:border-indigo-500/50 shadow-inner custom-scroll select-text" placeholder="Текст отклика появится здесь..."></textarea>
+          <div class="text-[10px] text-slate-500 text-right mt-1.5 flex items-center justify-end gap-1">
+            <i data-lucide="edit-3" class="w-3 h-3"></i>
+            <span>Текст можно отредактировать перед копированием</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Actions -->
+      <div class="space-y-2.5 pt-3 border-t border-slate-800">
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="copyCoverLetter()" id="copyBtn" class="py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 active:scale-95 transition shadow-lg shadow-indigo-600/30">
+            <i data-lucide="copy" class="w-4 h-4"></i>
+            <span id="copyBtnText">Скопировать</span>
+          </button>
+          <a id="modalApplyLink" href="#" target="_blank" onclick="event.preventDefault(); openLink(this.href);" class="py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 active:scale-95 transition">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+            <span>Перейти к вакансии</span>
+          </a>
+        </div>
+        <button onclick="markAsAppliedFromModal()" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition">
+          <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+          <span>Отметить как "Откликнулся"</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings & Cookie Modal (Desktop & TMA) -->
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl modal-enter max-h-[90vh] overflow-y-auto custom-scroll">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Параметры и Автоотклик</h3>
+            <p class="text-xs text-slate-400">HeadHunter Web Session & AI Scoring</p>
+          </div>
+        </div>
+        <button onclick="closeSettingsModal()" class="p-2 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="py-4 space-y-5">
+        <!-- HH Cookie Section -->
+        <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-white">🍪 Куки HeadHunter</span>
+              <span id="cookieStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700">Загрузка...</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Вставьте строку cookies с <a href="https://hh.ru" target="_blank" class="text-indigo-400 underline hover:text-indigo-300">hh.ru</a>, чтобы бот мог автоматически откликаться без необходимости решать SmartCaptcha на каждой вакансии.
+          </p>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">Строка Cookie (Header / DevTools):</label>
+            <textarea id="cookieInput" rows="3" placeholder="Вставьте сюда строку cookie (например: hhtoken=...; _xsrf=...)" class="w-full px-3 py-2 text-xs font-mono rounded-xl bg-slate-900 border border-slate-700/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
+            <div id="cookieCheckResult" class="text-xs mt-1.5 hidden"></div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="testCookie()" id="testCookieBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-indigo-400"></i> Проверить куки
+            </button>
+            <button onclick="saveCookieOnly()" id="saveCookieBtn" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить куки
+            </button>
+          </div>
+
+          <!-- Spoiler / instruction -->
+          <details class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 cursor-pointer">
+            <summary class="hover:text-indigo-300 select-none">Инструкция: как взять куки за 15 секунд</summary>
+            <ol class="list-decimal list-inside space-y-1 mt-2 text-slate-400 pl-1">
+              <li>Откройте <code class="text-indigo-300 font-mono">hh.ru</code> в браузере, где вы залогинены.</li>
+              <li>Нажмите <kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px]">F12</kbd> (DevTools) → вкладка <b>Сеть (Network)</b>.</li>
+              <li>Обновите страницу (<kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px]">F5</kbd>) и кликните на первый запрос к <code class="text-indigo-300 font-mono">hh.ru</code>.</li>
+              <li>В блоке <b>Заголовки запроса (Request Headers)</b> найдите строку <b>Cookie</b>, скопируйте её значение и вставьте сюда.</li>
+            </ol>
+          </details>
+        </div>
+
+        <!-- Auto Apply Options -->
+        <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+          <h4 class="text-sm font-semibold text-white">⚙️ Параметры автоотклика</h4>
+          
+          <label class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800/60 cursor-pointer hover:bg-slate-850 transition">
+            <div>
+              <div class="text-xs font-semibold text-slate-200">Фоновый автоотклик</div>
+              <div class="text-[11px] text-slate-400">Автоматически откликаться в цикле мониторинга</div>
+            </div>
+            <input type="checkbox" id="settingAutoApply" class="w-4 h-4 accent-indigo-600 rounded cursor-pointer">
+          </label>
+
+          <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800/60 flex items-center justify-between">
+            <div>
+              <div class="text-xs font-semibold text-slate-200">Минимальный балл для автоотклика</div>
+              <div class="text-[11px] text-slate-400">Отправлять отклик, если AI оценка ≥ этого порога</div>
+            </div>
+            <select id="settingMinScore" class="bg-slate-800 border border-slate-700 text-xs font-bold text-indigo-400 rounded-lg px-2.5 py-1.5 focus:outline-none">
+              <option value="6">6 / 10</option>
+              <option value="7">7 / 10</option>
+              <option value="8">8 / 10</option>
+              <option value="9">9 / 10</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+        <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition">
+          Закрыть
+        </button>
+        <button onclick="saveAllSettings()" id="saveAllSettingsBtn" class="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition active:scale-95">
+          Сохранить всё
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Modal (Desktop & External Browser) -->
+  <div id="authModal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center modal-enter">
+      
+      <!-- Shield Icon Glowing -->
+      <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-indigo-500/20 border border-sky-500/30 flex items-center justify-center shadow-lg shadow-sky-500/10">
+        <i data-lucide="shield-check" class="w-8 h-8 text-sky-400"></i>
+      </div>
+
+      <h2 class="text-xl sm:text-2xl font-black text-white">Вход для владельца</h2>
+      <p class="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
+        База вакансий и генератор откликов Career Hub защищены. Доступ разрешён исключительно Никите через Telegram.
+      </p>
+
+      <!-- Telegram Direct Link Button -->
+      <div class="my-6">
+        <a id="botAuthLink" href="#" target="_blank" class="w-full py-3.5 px-5 rounded-2xl bg-[#229ED9] hover:bg-[#1E88E5] text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-lg shadow-sky-500/25 active:scale-95 transition">
+          <i data-lucide="send" class="w-5 h-5"></i>
+          <span>Войти через Telegram-бота</span>
+        </a>
+      </div>
+
+      <!-- PIN Code Box -->
+      <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-left mb-5">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+          <span>Одноразовый PIN-код:</span>
+          <span class="text-[10px] text-sky-400 font-mono">действует 15 мин</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span id="authCodeBadge" class="text-2xl font-mono font-black tracking-widest text-sky-300">------</span>
+          <span class="text-xs text-slate-400">отправьте боту в чат</span>
+        </div>
+      </div>
+
+      <!-- Polling Status with Spinner / Pulsing dot -->
+      <div class="flex items-center justify-center gap-2 text-xs text-slate-400 py-1">
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+        <span id="authStatusText">Ожидание подтверждения в Telegram...</span>
+      </div>
+
+      <!-- Help info -->
+      <div class="mt-4 pt-4 border-t border-slate-800/80 text-[11px] text-slate-400 leading-normal">
+        💡 <i>Нажмите кнопку выше или напишите <code class="text-sky-300">/login</code> боту для мгновенного входа.</i>
+        <div class="mt-2 text-slate-400 flex items-center justify-center gap-1">
+          <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span>Доступ сохранится на этом компьютере на <b>30 дней</b></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Access Denied Modal -->
+  <div id="deniedModal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="relative w-full max-w-sm bg-slate-900 border border-rose-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl text-center">
+      <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center">
+        <i data-lucide="shield-alert" class="w-8 h-8 text-rose-400"></i>
+      </div>
+      <h2 class="text-xl font-black text-rose-300">Доступ запрещён</h2>
+      <p id="deniedMessage" class="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
+        Этот сервис настроен исключительно для личного использования владельцем.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Инициализация Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      try {
+        if (tg.setHeaderColor) tg.setHeaderColor('#0b1120');
+        if (tg.setBackgroundColor) tg.setBackgroundColor('#0b1120');
+      } catch (e) {}
+    }
+
+    // Состояние авторизации
+    let currentAuthSessionId = null;
+    let pollIntervalId = null;
+
+    function getAuthToken() {
+      return localStorage.getItem('career_hub_auth_token') || '';
+    }
+
+    function setAuthToken(token) {
+      localStorage.setItem('career_hub_auth_token', token);
+      document.cookie = `career_hub_token=${token}; max-age=${30 * 86400}; path=/; SameSite=Lax; Secure`;
+    }
+
+    function clearAuthToken() {
+      localStorage.removeItem('career_hub_auth_token');
+      document.cookie = 'career_hub_token=; max-age=0; path=/; SameSite=Lax';
+    }
+
+    function authHeaders(extra = {}) {
+      const token = getAuthToken();
+      const headers = { ...extra };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      return headers;
+    }
+
+    function showAuthModal() {
+      document.getElementById('authModal').classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function hideAuthModal() {
+      document.getElementById('authModal').classList.add('hidden');
+      if (pollIntervalId) {
+        clearInterval(pollIntervalId);
+        pollIntervalId = null;
+      }
+    }
+
+    function showAccessDenied(msg) {
+      hideAuthModal();
+      if (msg) document.getElementById('deniedMessage').textContent = msg;
+      document.getElementById('deniedModal').classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function requestLoginSession() {
+      try {
+        const resp = await fetch('./api/auth/request_login_session', { method: 'POST' });
+        const data = await resp.json();
+        if (data.ok) {
+          currentAuthSessionId = data.session_id;
+          document.getElementById('authCodeBadge').textContent = data.code;
+          const linkBtn = document.getElementById('botAuthLink');
+          linkBtn.href = data.bot_link;
+          linkBtn.onclick = () => {
+            if (tg?.openTelegramLink) {
+              tg.openTelegramLink(data.bot_link);
+              return false;
+            }
+          };
+          startSessionPolling(data.session_id);
+        }
+      } catch (e) {
+        console.error('Ошибка создания сессии авторизации:', e);
+      }
+    }
+
+    function startSessionPolling(sessionId) {
+      if (pollIntervalId) clearInterval(pollIntervalId);
+      pollIntervalId = setInterval(async () => {
+        try {
+          const resp = await fetch(`./api/auth/check_login_session?session_id=${sessionId}`);
+          const data = await resp.json();
+          if (data.ok && data.status === 'approved' && data.token) {
+            clearInterval(pollIntervalId);
+            pollIntervalId = null;
+            setAuthToken(data.token);
+            hideAuthModal();
+            document.getElementById('userProfileBadge')?.classList.remove('hidden');
+            loadData();
+          } else if (data.status === 'expired') {
+            requestLoginSession();
+          }
+        } catch (e) {
+          console.error('Ошибка проверки статуса входа:', e);
+        }
+      }, 1500);
+    }
+
+    async function logout() {
+      if (confirm('Выйти из профиля на этом устройстве?')) {
+        try {
+          await fetch('./api/auth/logout', { method: 'POST', headers: authHeaders() });
+        } catch (e) {}
+        clearAuthToken();
+        document.getElementById('userProfileBadge')?.classList.add('hidden');
+        showAuthModal();
+        requestLoginSession();
+      }
+    }
+
+    // Состояние приложения
+    let allVacancies = [];
+    let statuses = {};
+    let currentTab = 'inbox'; // 'inbox', 'saved', 'applied', 'interview', 'archived'
+    let filterRole = 'all';  // 'all', 'java', 'vpn_dev'
+    let filterSource = 'all';// 'all', 'hh', 'habr', 'getmatch', 'remotive'
+    let filterTopScoreOnly = false;
+    let activeVacancyForModal = null;
+
+    // Загрузка данных
+    async function loadData() {
+      const loading = document.getElementById('loadingIndicator');
+      loading.classList.remove('hidden');
+      try {
+        const resp = await fetch('./api/vacancies', { 
+          cache: 'no-store',
+          headers: authHeaders()
+        });
+        if (resp.status === 401 || resp.status === 403) {
+          clearAuthToken();
+          showAuthModal();
+          requestLoginSession();
+          return;
+        }
+        const data = await resp.json();
+        allVacancies = data.vacancies || [];
+        statuses = data.statuses || {};
+        updateStats(data.stats);
+        applyFilters();
+      } catch (err) {
+        console.error('Ошибка загрузки вакансий:', err);
+      } finally {
+        loading.classList.add('hidden');
+      }
+    }
+
+    function refreshData() {
+      haptic();
+      const icon = document.getElementById('refreshIcon');
+      icon.classList.add('animate-spin');
+      loadData().then(() => {
+        setTimeout(() => icon.classList.remove('animate-spin'), 600);
+      });
+    }
+
+    function updateStats(stats) {
+      if (!stats) return;
+      document.getElementById('statInbox').textContent = stats.inbox ?? 0;
+      document.getElementById('statSaved').textContent = stats.saved ?? 0;
+      document.getElementById('statApplied').textContent = stats.applied ?? 0;
+      document.getElementById('statInterview').textContent = stats.interview ?? 0;
+    }
+
+    // Навигация по табам
+    function switchTab(tab) {
+      haptic();
+      currentTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm', 'font-semibold');
+        btn.classList.add('text-slate-400');
+      });
+      const activeBtn = document.getElementById(`tab_${tab}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('text-slate-400');
+        activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm', 'font-semibold');
+      }
+      applyFilters();
+    }
+
+    // Фильтры
+    function setRoleFilter(role) {
+      haptic();
+      filterRole = role;
+      document.querySelectorAll('.rf-btn').forEach(b => {
+        b.className = 'rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition';
+      });
+      const btn = document.getElementById(`rf_${role}`);
+      if (btn) {
+        btn.className = 'rf-btn px-3 py-1.5 rounded-xl border bg-indigo-600/20 border-indigo-500 text-indigo-300 font-semibold whitespace-nowrap transition';
+      }
+      applyFilters();
+    }
+
+    function setSourceFilter(src) {
+      haptic();
+      filterSource = src;
+      document.querySelectorAll('.sf-btn').forEach(b => {
+        b.className = 'sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition';
+      });
+      const btn = document.getElementById(`sf_${src}`);
+      if (btn) {
+        btn.className = 'sf-btn px-3 py-1.5 rounded-xl border bg-slate-800 border-slate-700 text-slate-300 font-semibold whitespace-nowrap transition';
+      }
+      applyFilters();
+    }
+
+    function toggleTopScore() {
+      haptic();
+      filterTopScoreOnly = !filterTopScoreOnly;
+      const btn = document.getElementById('scoreToggleBtn');
+      if (filterTopScoreOnly) {
+        btn.className = 'px-3 py-1.5 rounded-xl border border-amber-500/50 bg-amber-500/20 text-amber-300 font-semibold whitespace-nowrap flex items-center gap-1.5';
+      } else {
+        btn.className = 'px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap flex items-center gap-1.5 hover:text-white transition';
+      }
+      applyFilters();
+    }
+
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('clearSearchBtn').classList.add('hidden');
+      applyFilters();
+    }
+
+    // Применение фильтров к списку
+    function applyFilters() {
+      const searchVal = document.getElementById('searchInput').value.trim().toLowerCase();
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (searchVal) clearBtn.classList.remove('hidden');
+      else clearBtn.classList.add('hidden');
+
+      const filtered = allVacancies.filter(v => {
+        const vStatus = statuses[v.id]?.status || 'inbox';
+        if (vStatus !== currentTab) return false;
+
+        const role = v.role || 'java';
+        if (filterRole !== 'all') {
+          if (filterRole === 'backend') {
+            if (role !== 'backend' && role !== 'python_dev') return false;
+          } else if (role !== filterRole) {
+            return false;
+          }
+        }
+
+        const src = v.source || 'hh';
+        if (filterSource !== 'all') {
+          if (filterSource === 'remotive') {
+            const isRemote = v.source === 'remotive' || 
+              (v.location && /удал[её]н|remote/i.test(v.location)) ||
+              (v.schedule && /удал[её]н|remote/i.test(v.schedule)) ||
+              (v.title && /удал[её]н|remote/i.test(v.title)) ||
+              (v.description && /удал[её]н|remote/i.test(v.description)) ||
+              (v.structured_description && /удал[её]н|remote/i.test(v.structured_description));
+            if (!isRemote) return false;
+          } else if (src !== filterSource) {
+            return false;
+          }
+        }
+
+        const score = v.match_score || v.analysis?.match_score || 0;
+        if (filterTopScoreOnly && score < 8) return false;
+
+        if (searchVal) {
+          const stackStr = (v.stack || []).join(' ');
+          const str = `${v.title} ${v.company} ${v.description || ''} ${v.salary || ''} ${stackStr}`.toLowerCase();
+          if (!str.includes(searchVal)) return false;
+        }
+
+        return true;
+      });
+
+      renderVacancies(filtered);
+    }
+
+    function getTechBadge(tech) {
+      const t = tech.toLowerCase();
+      let color = 'bg-slate-800/80 text-slate-300 border-slate-700/80';
+      let icon = 'code-2';
+
+      if (t.includes('java 21') || t.includes('java 17') || t === 'java') {
+        color = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+        icon = 'coffee';
+      } else if (t.includes('spring')) {
+        color = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+        icon = 'layers';
+      } else if (t.includes('postgres') || t.includes('sql') || t.includes('mysql')) {
+        color = 'bg-sky-500/15 text-sky-300 border-sky-500/30';
+        icon = 'database';
+      } else if (t.includes('docker')) {
+        color = 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+        icon = 'box';
+      } else if (t.includes('k8s') || t.includes('kubernetes')) {
+        color = 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30';
+        icon = 'server';
+      } else if (t.includes('kafka') || t.includes('rabbitmq')) {
+        color = 'bg-orange-500/15 text-orange-300 border-orange-500/30';
+        icon = 'zap';
+      } else if (t.includes('redis')) {
+        color = 'bg-red-500/15 text-red-300 border-red-500/30';
+        icon = 'database';
+      } else if (t.includes('kotlin')) {
+        color = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+        icon = 'cpu';
+      } else if (t.includes('git')) {
+        color = 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+        icon = 'git-branch';
+      } else if (t.includes('clean') || t.includes('архитектур')) {
+        color = 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
+        icon = 'layout-grid';
+      } else if (t.includes('xray') || t.includes('vless') || t.includes('sing-box') || t.includes('remnawave')) {
+        color = 'bg-teal-500/15 text-teal-300 border-teal-500/30';
+        icon = 'shield';
+      }
+
+      return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border text-[11px] font-semibold tracking-wide shadow-sm ${color}">
+        <i data-lucide="${icon}" class="w-3 h-3"></i>
+        <span>${tech}</span>
+      </span>`;
+    }
+
+    // Отрисовка списка вакансий (Адаптивная 2-3 колоночная сетка)
+    function renderVacancies(list) {
+      const container = document.getElementById('vacanciesContainer');
+      const emptyState = document.getElementById('emptyState');
+
+      container.innerHTML = '';
+      if (list.length === 0) {
+        emptyState.classList.remove('hidden');
+        if (currentTab === 'applied') {
+          document.getElementById('emptyTitle').textContent = 'Пока нет откликов';
+          document.getElementById('emptyDesc').textContent = 'Когда вы отправите резюме, нажмите "Откликнулся" на карточке вакансии.';
+        } else if (currentTab === 'saved') {
+          document.getElementById('emptyTitle').textContent = 'Список планов пуст';
+          document.getElementById('emptyDesc').textContent = 'Сохраняйте интересные вакансии нажатием на звездочку.';
+        } else {
+          document.getElementById('emptyTitle').textContent = 'Нет подходящих вакансий';
+          document.getElementById('emptyDesc').textContent = 'Попробуйте сбросить фильтры или обновить ленту.';
+        }
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      list.forEach(v => {
+        const card = document.createElement('div');
+        card.className = 'p-5 sm:p-6 rounded-2xl bg-slate-900/90 border border-slate-800/90 hover:border-slate-700 shadow-md hover:shadow-indigo-500/5 transition flex flex-col justify-between group';
+        
+        const role = v.role || 'java';
+        let roleBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">☕ Java Backend</span>`;
+        if (role === 'vpn_dev') roleBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">🛡️ VPN (Xray)</span>`;
+        else if (role === 'java_ai') roleBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-violet-500/10 text-violet-400 border border-violet-500/20">🤖 Java AI</span>`;
+        else if (role === 'backend' || role === 'python_dev') roleBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">⚡ Backend Dev</span>`;
+
+        let sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">🔴 HeadHunter</span>`;
+        if (v.source === 'habr') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">🔵 Хабр</span>`;
+        if (v.source === 'getmatch') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">🟣 GetMatch</span>`;
+        if (v.source === 'vseti') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-teal-500/10 text-teal-400 border border-teal-500/20">🌐 СЕТИ</span>`;
+        if (v.source === 'remotive') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🟢 Remote</span>`;
+        if (v.source === 'superjob') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">💼 SuperJob</span>`;
+        if (v.source === 'linkedin') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-blue-600/10 text-blue-400 border border-blue-600/20">🌐 LinkedIn</span>`;
+        if (v.source === 'rabota') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">🔴 Работа.ру</span>`;
+        if (v.source === 'trudvsem') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-red-600/10 text-red-400 border border-red-600/20">🇷🇺 Работа России</span>`;
+        if (v.source === 'telegram' || v.source === 'telegram_channel') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">📢 Telegram</span>`;
+
+        const isRemote = v.source === 'remotive' || 
+          (v.location && /удал[её]н|remote/i.test(v.location)) ||
+          (v.schedule && /удал[её]н|remote/i.test(v.schedule)) ||
+          (v.title && /удал[её]н|remote/i.test(v.title)) ||
+          (v.description && /удал[её]н|remote/i.test(v.description)) ||
+          (v.structured_description && /удал[её]н|remote/i.test(v.structured_description));
+        const remoteBadge = isRemote ? `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🟢 Удалённо</span>` : '';
+
+        const score = v.match_score || v.analysis?.match_score || 7;
+        const scoreColor = score >= 8 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
+        const scoreBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ${scoreColor}">🔥 ${score}/10</span>`;
+
+        const salaryHtml = v.salary 
+          ? `<div class="text-xs sm:text-sm font-semibold text-emerald-400 mt-1 flex items-center gap-1.5"><i data-lucide="banknote" class="w-4 h-4"></i> ${v.salary}</div>`
+          : '';
+
+        const verdict = v.analysis?.verdict || '';
+        const eduWarn = v.analysis?.education_warning || '';
+        const recom = v.analysis?.recommendation || '';
+
+        const vStatus = statuses[v.id]?.status || 'inbox';
+        const appliedAt = statuses[v.id]?.applied_at ? `<div class="text-[11px] text-emerald-400 mt-1 flex items-center gap-1"><i data-lucide="check" class="w-3.5 h-3.5"></i> Отклик отправлен: ${new Date(statuses[v.id].applied_at).toLocaleString('ru-RU', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}</div>` : '';
+
+        const stackChips = (v.stack && v.stack.length > 0)
+          ? `<div class="flex items-center gap-1.5 flex-wrap my-3">
+              ${v.stack.map(s => getTechBadge(s)).join('')}
+            </div>`
+          : '';
+
+        const locationHtml = v.location 
+          ? `<div class="text-[11px] sm:text-xs text-slate-400 flex items-center gap-1 mt-0.5"><i data-lucide="map-pin" class="w-3 h-3 text-slate-500"></i> ${v.location}</div>`
+          : '';
+
+        card.innerHTML = `
+          <div>
+            <!-- Badges header -->
+            <div class="flex items-center justify-between gap-1 mb-2.5">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${roleBadge}
+                ${sourceBadge}
+                ${remoteBadge}
+              </div>
+              ${scoreBadge}
+            </div>
+
+            <!-- Title & Company -->
+            <h2 class="text-base sm:text-lg font-bold text-white group-hover:text-indigo-400 transition cursor-pointer leading-snug" onclick="openLink('${v.link}')">
+              ${v.title}
+            </h2>
+            <div class="text-xs sm:text-sm text-slate-400 flex items-center gap-1.5 mt-1">
+              <i data-lucide="building-2" class="w-3.5 h-3.5 text-slate-500"></i> ${v.company}
+            </div>
+            ${locationHtml}
+            ${salaryHtml}
+            ${appliedAt}
+
+            <!-- Tech Stack Chips (Прямо на карточке) -->
+            ${stackChips}
+
+            <!-- AI Verdict Card -->
+            ${verdict ? `
+            <div class="my-3 p-3 sm:p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs leading-relaxed text-slate-300">
+              <div class="font-semibold text-indigo-300 flex items-center gap-1.5 mb-1">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i> AI Оценка
+              </div>
+              <p>${verdict}</p>
+              ${eduWarn ? `<div class="mt-1.5 text-amber-400 font-medium flex items-center gap-1"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> ${eduWarn}</div>` : ''}
+              ${recom ? `<div class="mt-1 text-slate-400 italic">Совет: ${recom}</div>` : ''}
+            </div>
+            ` : ''}
+
+            <!-- Requirements Accordion (Структурированный блок) -->
+            <details class="text-xs text-slate-400 my-2.5 group/req border border-slate-800/80 rounded-2xl bg-slate-950/70 overflow-hidden">
+              <summary class="cursor-pointer p-3 text-xs text-slate-300 hover:text-white flex items-center justify-between gap-1 select-none font-semibold hover:bg-slate-900/50 transition">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="file-text" class="w-4 h-4 text-indigo-400"></i>
+                  <span>Требования и описание вакансии</span>
+                </div>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500 group-open/req:rotate-180 transition"></i>
+              </summary>
+              <div class="p-3.5 pt-2 text-xs text-slate-300 leading-relaxed max-h-56 overflow-y-auto custom-scroll border-t border-slate-800/60 font-sans">
+                ${v.structured_description || v.description || 'Описание не указано'}
+              </div>
+            </details>
+          </div>
+
+          <!-- Action Buttons Bar (Always aligned at bottom) -->
+          <div class="flex items-center justify-between gap-2 pt-3 border-t border-slate-800/80 mt-3">
+            <!-- Left: Cover letter -->
+            <button onclick="openCoverLetter('${v.id}')" class="px-3 py-2 rounded-xl bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition shadow-sm">
+              <i data-lucide="file-edit" class="w-4 h-4"></i>
+              <span>Отклик</span>
+            </button>
+
+            <!-- Status switches -->
+            <div class="flex items-center gap-1.5">
+              ${vStatus !== 'saved' ? `
+                <button onclick="changeStatus('${v.id}', 'saved')" title="В планы" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 active:scale-90 transition">
+                  <i data-lucide="star" class="w-4 h-4"></i>
+                </button>
+              ` : `
+                <button onclick="changeStatus('${v.id}', 'inbox')" title="Вернуть в новые" class="p-2 rounded-xl bg-amber-500/20 text-amber-400 active:scale-90 transition">
+                  <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                </button>
+              `}
+
+              ${vStatus !== 'applied' ? `
+                <button onclick="changeStatus('${v.id}', 'applied')" title="Откликнулся" class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 text-xs font-semibold flex items-center gap-1 active:scale-95 transition">
+                  <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                  <span>Откликнулся</span>
+                </button>
+              ` : `
+                <button onclick="changeStatus('${v.id}', 'interview')" title="Пригласили на интервью" class="px-2.5 py-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1 active:scale-95 transition">
+                  <i data-lucide="phone" class="w-3.5 h-3.5"></i>
+                  <span>Интервью</span>
+                </button>
+              `}
+
+              ${vStatus !== 'archived' ? `
+                <button onclick="changeStatus('${v.id}', 'archived')" title="В архив" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-500 hover:text-red-400 active:scale-90 transition">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              ` : `
+                <button onclick="changeStatus('${v.id}', 'inbox')" title="Восстановить" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-400 active:scale-90 transition">
+                  <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                </button>
+              `}
+
+              <a href="${v.link}" target="_blank" onclick="event.preventDefault(); openLink(this.href);" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white active:scale-90 transition" title="Открыть вакансию">
+                <i data-lucide="external-link" class="w-4 h-4"></i>
+              </a>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    // Изменение статуса
+    async function changeStatus(vId, newStatus) {
+      haptic();
+      statuses[vId] = {
+        status: newStatus,
+        applied_at: newStatus === 'applied' ? new Date().toISOString() : statuses[vId]?.applied_at
+      };
+      
+      // Локальный пересчет
+      recalcStats();
+      applyFilters();
+
+      // Отправка на бэкенд
+      try {
+        await fetch('./api/status', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ id: vId, status: newStatus })
+        });
+      } catch (e) {
+        console.error('Ошибка сохранения статуса:', e);
+      }
+    }
+
+    function recalcStats() {
+      let counts = { inbox: 0, saved: 0, applied: 0, interview: 0, archived: 0 };
+      allVacancies.forEach(v => {
+        const s = statuses[v.id]?.status || 'inbox';
+        if (counts[s] !== undefined) counts[s]++;
+      });
+      updateStats(counts);
+    }
+
+    // Сопроводительное письмо модалка
+    async function openCoverLetter(vId) {
+      haptic();
+      const vacancy = allVacancies.find(v => v.id === vId);
+      if (!vacancy) return;
+
+      activeVacancyForModal = vacancy;
+      document.getElementById('modalVacancyTitle').textContent = `${vacancy.title} (${vacancy.company})`;
+      document.getElementById('modalApplyLink').href = vacancy.link;
+
+      const modal = document.getElementById('coverLetterModal');
+      const box = document.getElementById('letterContentBox');
+      const wrapper = document.getElementById('letterBoxWrapper');
+      const loading = document.getElementById('letterLoading');
+      const copyBtnText = document.getElementById('copyBtnText');
+
+      copyBtnText.textContent = 'Скопировать';
+      box.value = '';
+      if (wrapper) wrapper.classList.add('hidden');
+      loading.classList.remove('hidden');
+      modal.classList.remove('hidden');
+
+      try {
+        const resp = await fetch('./api/cover_letter', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ id: vId })
+        });
+        const data = await resp.json();
+        box.value = data.cover_letter || 'Не удалось сформировать письмо.';
+      } catch (e) {
+        box.value = 'Ошибка формирования отклика. Попробуйте ещё раз.';
+      } finally {
+        loading.classList.add('hidden');
+        if (wrapper) wrapper.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    function closeCoverLetterModal() {
+      haptic();
+      document.getElementById('coverLetterModal').classList.add('hidden');
+    }
+
+    async function copyCoverLetter() {
+      haptic();
+      const text = document.getElementById('letterContentBox').value;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        document.getElementById('copyBtnText').textContent = 'Скопировано! ✅';
+        setTimeout(() => {
+          document.getElementById('copyBtnText').textContent = 'Скопировать';
+        }, 2000);
+      } catch (err) {
+        alert('Не удалось скопировать, выделите текст вручную.');
+      }
+    }
+
+    function markAsAppliedFromModal() {
+      if (activeVacancyForModal) {
+        changeStatus(activeVacancyForModal.id, 'applied');
+        closeCoverLetterModal();
+      }
+    }
+
+    function openLink(url) {
+      if (tg?.openLink) tg.openLink(url);
+      else window.open(url, '_blank');
+    }
+
+    // Settings & Cookie Modal
+    async function openSettingsModal() {
+      haptic();
+      const modal = document.getElementById('settingsModal');
+      modal.classList.remove('hidden');
+      
+      const badge = document.getElementById('cookieStatusBadge');
+      badge.textContent = 'Загрузка...';
+      badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700';
+      document.getElementById('cookieCheckResult').classList.add('hidden');
+
+      try {
+        const res = await fetch('./api/settings', { headers: authHeaders() });
+        const data = await res.json();
+        if (data.ok) {
+          document.getElementById('settingAutoApply').checked = !!data.auto_apply_enabled;
+          document.getElementById('settingMinScore').value = data.auto_apply_min_score || 7;
+          
+          if (data.hh_web_cookie_valid) {
+            badge.textContent = `🟢 Активна (${data.hh_user_name || 'Никита'})`;
+            badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+          } else if (data.hh_web_cookie_configured) {
+            badge.textContent = '🟡 Истекла / Требует обновления';
+            badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30';
+          } else {
+            badge.textContent = '🔴 Не настроена';
+            badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30';
+          }
+        }
+      } catch (e) {
+        console.error('Ошибка загрузки настроек:', e);
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeSettingsModal() {
+      haptic();
+      document.getElementById('settingsModal').classList.add('hidden');
+      document.getElementById('cookieCheckResult').classList.add('hidden');
+    }
+
+    async function testCookie() {
+      haptic();
+      const cookieVal = document.getElementById('cookieInput').value.trim();
+      const resultDiv = document.getElementById('cookieCheckResult');
+      const btn = document.getElementById('testCookieBtn');
+      
+      if (!cookieVal) {
+        resultDiv.textContent = 'Пожалуйста, вставьте строку куки.';
+        resultDiv.className = 'text-xs mt-1.5 text-rose-400';
+        resultDiv.classList.remove('hidden');
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Проверка...';
+      
+      try {
+        const res = await fetch('./api/check_cookie', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ cookie: cookieVal })
+        });
+        const data = await res.json();
+        if (data.ok && data.valid) {
+          resultDiv.textContent = `✅ Успешно! Авторизован как: ${data.name}. Найдено резюме: ${data.resumes_count || 1}.`;
+          resultDiv.className = 'text-xs mt-1.5 text-emerald-400 font-medium';
+          
+          const badge = document.getElementById('cookieStatusBadge');
+          badge.textContent = `🟢 Валидна (${data.name})`;
+          badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+        } else {
+          resultDiv.textContent = `❌ Ошибка: ${data.error || 'Сессия недействительна'}`;
+          resultDiv.className = 'text-xs mt-1.5 text-rose-400';
+        }
+      } catch (e) {
+        resultDiv.textContent = 'Ошибка соединения с сервером при проверке куки.';
+        resultDiv.className = 'text-xs mt-1.5 text-rose-400';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="shield-check" class="w-3.5 h-3.5 text-indigo-400"></i> Проверить куки';
+        resultDiv.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    async function saveCookieOnly() {
+      await saveAllSettings(true);
+    }
+
+    async function saveAllSettings(cookieOnly = false) {
+      haptic();
+      const cookieVal = document.getElementById('cookieInput').value.trim();
+      const autoApply = document.getElementById('settingAutoApply').checked;
+      const minScore = parseInt(document.getElementById('settingMinScore').value, 10);
+      const resultDiv = document.getElementById('cookieCheckResult');
+      const btn = document.getElementById('saveAllSettingsBtn');
+      
+      btn.disabled = true;
+      btn.textContent = 'Сохранение...';
+
+      const payload = {
+        auto_apply_enabled: autoApply,
+        auto_apply_min_score: minScore
+      };
+      if (cookieVal) {
+        payload.hh_web_cookie = cookieVal;
+      }
+
+      try {
+        const res = await fetch('./api/settings', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (data.cookie_msg) {
+            resultDiv.textContent = data.cookie_valid ? `✅ ${data.cookie_msg}` : `⚠️ ${data.cookie_msg}`;
+            resultDiv.className = data.cookie_valid ? 'text-xs mt-1.5 text-emerald-400' : 'text-xs mt-1.5 text-amber-400';
+            resultDiv.classList.remove('hidden');
+          }
+          
+          const badge = document.getElementById('cookieStatusBadge');
+          if (data.settings?.hh_web_cookie_valid) {
+            badge.textContent = '🟢 Активна';
+            badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+          }
+          
+          btn.textContent = 'Сохранено! ✅';
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = 'Сохранить всё';
+            if (!cookieOnly) closeSettingsModal();
+          }, 1500);
+        } else {
+          alert('Ошибка при сохранении: ' + (data.error || 'неизвестная ошибка'));
+          btn.disabled = false;
+          btn.textContent = 'Сохранить всё';
+        }
+      } catch (e) {
+        alert('Сетевая ошибка при сохранении настроек.');
+        btn.disabled = false;
+        btn.textContent = 'Сохранить всё';
+      }
+    }
+
+    async function initAuthAndApp() {
+      // 1. Проверяем наличие параметра ?auth= в URL
+      const params = new URLSearchParams(window.location.search);
+      const authCode = params.get('auth');
+      if (authCode) {
+        try {
+          const res = await fetch('./api/auth/exchange_token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: authCode })
+          });
+          const data = await res.json();
+          if (data.ok && data.token) {
+            setAuthToken(data.token);
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        } catch (e) {
+          console.error('Ошибка входа по ссылке:', e);
+        }
+      }
+
+      // 2. Проверяем Telegram WebApp initData (если открыто внутри Telegram)
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+        try {
+          const res = await fetch('./api/auth/telegram_webapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: window.Telegram.WebApp.initData })
+          });
+          const data = await res.json();
+          if (data.ok && data.token) {
+            setAuthToken(data.token);
+          } else if (res.status === 403) {
+            showAccessDenied(data.error || 'Доступ разрешён только владельцу.');
+            return;
+          }
+        } catch (e) {
+          console.error('Ошибка Telegram WebApp auth:', e);
+        }
+      }
+
+      // 3. Проверяем сохранённый токен (действует 30 дней)
+      const token = getAuthToken();
+      if (token) {
+        try {
+          const res = await fetch('./api/auth/me', {
+            headers: authHeaders()
+          });
+          const data = await res.json();
+          if (data.ok) {
+            hideAuthModal();
+            document.getElementById('userProfileBadge')?.classList.remove('hidden');
+            loadData();
+            setInterval(loadData, 60000);
+            return;
+          }
+        } catch (e) {
+          console.error('Ошибка валидации токена:', e);
+        }
+        clearAuthToken();
+      }
+
+      // 4. Не авторизован: показываем окно входа и запускаем сессию
+      showAuthModal();
+      requestLoginSession();
+    }
+
+    // Инициализация при загрузке
+    document.addEventListener('DOMContentLoaded', () => {
+      initAuthAndApp();
+    });
+  </script>
+</body>
+</html>

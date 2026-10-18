@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+env/
+venv/
+.venv/
+
+# Sensitive Runtime Data & Secrets (NEVER commit tokens or personal sessions!)
+data/
+*.bak*
+*.new
+bot_config.json
+seen_vacancies.json
+vacancies_cache.json
+vacancy_statuses.json
+auth_sessions.json
+hh_negotiations_tracker.json
+resume_dump.txt
+live_api_response.json
+.env
+
+# Codebase memory & logs
+.codebase-memory/
+*.log
+scratch/
+
+# Temporary / diagnostic scratch scripts
+apply_backlog.py
+apply_config_update.py
+check_cache_status.py
+check_hh_responses.py
+check_hh_session.py
+check_pending.py
+clean_seen_safe.py
+find_missing_letters.py
+generate_missing_letters.py
+get_resume_text.py
+inspect_*.py
+parse_app_cookies.py
+probe_backlog.py
+sync_and_notify.py
+test_calibrated_prompt.py
+test_delete_negotiation.py
+test_hh_auth.py
+update_vps_*.py

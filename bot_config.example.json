@@ -1,0 +1,151 @@
+{
+  "bot_token": "YOUR_TELEGRAM_BOT_TOKEN",
+  "chat_id": 123456789,
+  "allowed_telegram_id": 123456789,
+  "groq_api_key": "YOUR_GROQ_API_KEY",
+  "groq_model": "qwen/qwen3.8-27b",
+  "resume_quick_tunnel_url": "https://your-portfolio-or-tunnel.trycloudflare.com/",
+  "min_match_score": 6,
+  "notify_min_score": 9,
+  "check_interval_seconds": 600,
+  "max_ai_analyses_per_cycle": 25,
+  "ai_delay_seconds": 2.5,
+  "auto_apply_enabled": true,
+  "auto_apply_min_score": 7,
+  "daily_digest_enabled": true,
+  "last_digest_time": 0,
+  "enable_hh": true,
+  "enable_habr": true,
+  "enable_getmatch": false,
+  "enable_remotive": true,
+  "enable_superjob": true,
+  "enable_linkedin": true,
+  "enable_telegram": true,
+  "enable_rabota": true,
+  "enable_trudvsem": false,
+  "hh_web_cookie": "",
+  "hh_resume_hash": "",
+  "hh_access_token": "",
+  "hh_resume_id": "",
+  "blacklisted_companies": [
+    "aston",
+    "астон",
+    "team.inno",
+    "фабрика инноваций",
+    "kata academy",
+    "дипра"
+  ],
+  "habr_queries": [
+    "https://career.habr.com/vacancies/rss?s[]=1&s[]=2&q=junior+java",
+    "https://career.habr.com/vacancies/rss?s[]=1&s[]=2&q=стажер+java",
+    "https://career.habr.com/vacancies/rss?s[]=1&s[]=2&q=java",
+    "https://career.habr.com/vacancies/rss?s[]=1&s[]=2&q=spring",
+    "https://career.habr.com/vacancies/rss?s[]=1&s[]=2&q=junior+backend",
+    "https://career.habr.com/vacancies/rss?s[]=1&s[]=2&q=junior+fullstack",
+    "https://career.habr.com/vacancies/rss?q=Spring+AI",
+    "https://career.habr.com/vacancies/rss?q=LangChain4j",
+    "https://career.habr.com/vacancies/rss?q=Java+AI",
+    "https://career.habr.com/vacancies/rss?q=remnawave",
+    "https://career.habr.com/vacancies/rss?q=xray"
+  ],
+  "hh_queries": [
+    {
+      "query": "junior java",
+      "experience": "noExperience"
+    },
+    {
+      "query": "стажер java",
+      "experience": "noExperience"
+    },
+    {
+      "query": "junior backend",
+      "experience": "noExperience"
+    },
+    {
+      "query": "стажер backend",
+      "experience": "noExperience"
+    },
+    {
+      "query": "junior python",
+      "experience": "noExperience"
+    },
+    {
+      "query": "стажер python",
+      "experience": "noExperience"
+    },
+    {
+      "query": "fastapi",
+      "experience": "noExperience"
+    },
+    {
+      "query": "junior fullstack",
+      "experience": "noExperience"
+    },
+    {
+      "query": "Spring AI"
+    },
+    {
+      "query": "LangChain4j"
+    },
+    {
+      "query": "Java AI"
+    },
+    {
+      "query": "AI engineer"
+    },
+    {
+      "query": "LLM developer"
+    },
+    {
+      "query": "разработчик vpn"
+    }
+  ],
+  "superjob_queries": [
+    {
+      "query": "junior java",
+      "experience": "1"
+    },
+    {
+      "query": "стажер java",
+      "experience": "1"
+    },
+    {
+      "query": "стажер python",
+      "experience": "1"
+    }
+  ],
+  "rabota_queries": [
+    "junior java",
+    "стажер java",
+    "junior python",
+    "стажер backend"
+  ],
+  "linkedin_queries": [
+    {
+      "query": "Junior Java",
+      "location": "Worldwide",
+      "f_TPR": "r86400",
+      "f_WT": "2"
+    },
+    {
+      "query": "Junior Backend",
+      "location": "Worldwide",
+      "f_TPR": "r86400",
+      "f_WT": "2"
+    }
+  ],
+  "telegram_channels": [
+    {
+      "channel": "fordev",
+      "name": "ForDev IT Jobs"
+    },
+    {
+      "channel": "young_june",
+      "name": "Young & Junior"
+    },
+    {
+      "channel": "junior_it_jobs",
+      "name": "Junior IT Jobs"
+    }
+  ]
+}

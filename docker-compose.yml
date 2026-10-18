@@ -1,0 +1,22 @@
+services:
+  habr_career_bot:
+    build: .
+    container_name: habr_career_bot
+    restart: unless-stopped
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    ports:
+      - "127.0.0.1:8088:8088"
+    volumes:
+      - ./data:/app/data
+      - ./bot.py:/app/bot.py
+      - ./miniapp_index.html:/app/miniapp_index.html
+    environment:
+      - TZ=Europe/Moscow
+      - PYTHONUNBUFFERED=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
