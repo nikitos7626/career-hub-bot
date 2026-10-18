@@ -447,7 +447,12 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         self.assertEqual(prof["name"], "Никита Фролов")
         self.assertIn("b81ca639ff1137b70d0039ed1f57755649766f", prof["resumes"])
 
-    def test_generate_cover_letter_includes_tunnel_and_non_commercial(self):
+    @patch("bot.requests.post")
+    def test_generate_cover_letter_includes_tunnel_and_non_commercial(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        mock_resp.text = "Mock network disabled"
+        mock_post.return_value = mock_resp
         # Test fallback template
         vacancy = {
             "title": "Junior Java Developer",
@@ -464,7 +469,12 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         self.assertIn("Spring Boot 3", letter)
         self.assertIn("Готов выполнить тестовое задание", letter)
 
-    def test_generate_cover_letter_fullstack_js_template(self):
+    @patch("bot.requests.post")
+    def test_generate_cover_letter_fullstack_js_template(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        mock_resp.text = "Mock network disabled"
+        mock_post.return_value = mock_resp
         vacancy = {
             "title": "Стажёр Fullstack JS",
             "company": "Digital Agency",
@@ -611,7 +621,12 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         self.assertTrue(bot.quick_prefilter_reject("Data Scientist (Junior)", "Pandas, ML", "AI Lab"))
         self.assertTrue(bot.quick_prefilter_reject("Junior DevOps Engineer", "Docker, Kubernetes, CI/CD", "Cloud"))
 
-    def test_generate_cover_letter_includes_both_links(self):
+    @patch("bot.requests.post")
+    def test_generate_cover_letter_includes_both_links(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        mock_resp.text = "Mock network disabled"
+        mock_post.return_value = mock_resp
         # Fullstack JS fallback letter
         v_fs = {"title": "Junior Fullstack Developer", "company": "Acme", "role": "fullstack_js"}
         letter_fs = bot.generate_cover_letter("dummy_key", "invalid_model", v_fs)

@@ -99,7 +99,7 @@ flowchart TD
 ## 🛠️ Стек технологий
 
 * **Backend:** Python 3.12+, `asyncio`, `aiohttp`, `threading`, встроенный HTTP REST API сервер без тяжелых оверхедов.
-* **AI & LLM:** [Groq Cloud API](https://groq.com/) (`qwen/qwen3.8-27b`, `llama-3.3-70b-versatile`, `openai/gpt-oss-120b`).
+* **AI & LLM:** [Groq Cloud API](https://groq.com/) (`llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `qwen-2.5-32b`).
 * **Frontend:** SPA на чистом JavaScript, Tailwind CSS (Dark Mode), Lucide Icons, Telegram WebApp SDK.
 * **Инфраструктура & DevOps:** Docker, Docker Compose, Nginx, Cloudflare Tunnels, systemd.
 

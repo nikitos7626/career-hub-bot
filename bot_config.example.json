@@ -3,7 +3,7 @@
   "chat_id": 123456789,
   "allowed_telegram_id": 123456789,
   "groq_api_key": "YOUR_GROQ_API_KEY",
-  "groq_model": "qwen/qwen3.8-27b",
+  "groq_model": "llama-3.3-70b-versatile",
   "resume_quick_tunnel_url": "https://your-portfolio-or-tunnel.trycloudflare.com/",
   "min_match_score": 6,
   "notify_min_score": 9,
