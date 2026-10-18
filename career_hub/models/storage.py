@@ -22,12 +22,12 @@ STATE_FILE = SEEN_FILE
 HH_NEGOTIATIONS_FILE = os.path.join(DATA_DIR, "hh_negotiations_tracker.json")
 MINIAPP_HTML_PATH = os.path.join(DATA_DIR, "miniapp", "index.html")
 
-# Locks
-cache_lock = threading.Lock()
-statuses_lock = threading.Lock()
-sessions_lock = threading.Lock()
-seen_lock = threading.Lock()
-hh_neg_lock = threading.Lock()
+# Locks (RLock allows safe re-entrant acquisition within the same thread)
+cache_lock = threading.RLock()
+statuses_lock = threading.RLock()
+sessions_lock = threading.RLock()
+seen_lock = threading.RLock()
+hh_neg_lock = threading.RLock()
 
 SEEN_VACANCIES_TTL_DAYS = 7
 

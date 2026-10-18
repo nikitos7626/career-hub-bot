@@ -41,7 +41,7 @@ from career_hub.controllers.scrapers import fetch_vacancy_by_id
 logger = logging.getLogger("career_hub.views.http")
 
 pending_logins = {}
-pending_logins_lock = threading.Lock()
+pending_logins_lock = threading.RLock()
 
 
 def _get_bot_ref(attr_name, fallback):
