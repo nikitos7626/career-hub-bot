@@ -182,7 +182,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
 
     full_text = f"{clean_title} {clean_desc}".lower()
     is_vpn_dev = vacancy.get("role") == "vpn_dev" or any(k in full_text for k in ["remnawave", "xray", "vless", "sing-box"])
-    is_java_ai = vacancy.get("role") in ["ai_dev", "java_ai"] or any(k in full_text for k in ["spring ai", "spring-ai", "langchain4j", "langchain", "ai agent", "ai-агент", "llm", "rag", "инженер ии", "разработчик ии", "ai engineer"])
+    is_java_ai = vacancy.get("role") in ["ai_dev", "java_ai"] or any(k in full_text for k in ["spring ai", "spring-ai", "langchain4j", "langchain", "ai agent", "ai-агент", "llm", "rag", "инженер ии", "разработчик ии", "ai engineer", "prompt", "промпт", "mcp", "gigachat", "gigacode"])
     is_python_backend = vacancy.get("role") == "python_dev" or (any(k in full_text for k in ["python", "fastapi", "django", "flask"]) and any(d in full_text for d in ["backend", "бэкенд", "разработчик", "developer", "стажер", "junior"]) and not ("java" in clean_title.lower() and "javascript" not in clean_title.lower()))
     is_fullstack_js = vacancy.get("role") == "fullstack_js" or (any(k in full_text for k in ["fullstack", "фулстек", "full stack", "react", "node", "javascript", "frontend", "front-end", "фронтенд"]) and not ("java" in clean_title.lower() and "javascript" not in clean_title.lower()))
 

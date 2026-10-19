@@ -252,6 +252,10 @@ def normalize_vacancy_for_api(v: dict, statuses: dict) -> dict | None:
     if not role:
         if any(k in full_text for k in ["remnawave", "xray", "vless", "sing-box"]) or ("vpn" in full_text and any(d in full_text for d in ["разработчик", "developer", "backend", "программист"])):
             role = "vpn_dev"
+        elif any(k in title.lower() for k in ["prompt", "промпт", "ai agent", "ai-агент", "llm", "агент"]):
+            role = "java_ai"
+        elif any(k in full_text for k in ["prompt engineer", "промпт-инженер", "промпт инженер", "mcp-сервер", "mcp server", "gigacode", "gigachat"]):
+            role = "java_ai"
         elif any(k in full_text for k in ["spring ai", "spring-ai", "langchain4j", "langchain-4j"]) or (any(k in full_text for k in ["llm", "ai agent", "ai-агент", "ai агент", "genai", "rag"]) and any(j in full_text for j in ["java", "jvm", "spring"])):
             role = "java_ai"
         elif any(k in title.lower() for k in ["java", "kotlin", "spring"]) or (any(k in full_text for k in ["java", "kotlin"]) and any(k in full_text for k in ["developer", "разработчик", "backend", "junior", "стажер"])):
