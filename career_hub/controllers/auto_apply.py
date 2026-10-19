@@ -44,10 +44,27 @@ def _get_bot_ref(attr_name, fallback):
     return fallback
 
 
+def get_miniapp_url() -> str:
+    cfg_fn = _get_bot_ref("load_config", None)
+    if cfg_fn:
+        try:
+            return cfg_fn().get("miniapp_url") or os.environ.get("MINIAPP_URL") or "https://jobs.example.com/"
+        except Exception:
+            pass
+    return os.environ.get("MINIAPP_URL") or "https://jobs.example.com/"
+
+
 def get_hh_headers(access_token: str) -> dict:
+    cfg_fn = _get_bot_ref("load_config", None)
+    contact = "applicant@example.com"
+    if cfg_fn:
+        try:
+            contact = cfg_fn().get("contact_email") or os.environ.get("CONTACT_EMAIL") or contact
+        except Exception:
+            pass
     return {
         "Authorization": f"Bearer {access_token}",
-        "User-Agent": "CareerHubBot/1.0 (nikita@shadowkek.space)"
+        "User-Agent": f"CareerHubBot/1.0 ({contact})"
     }
 
 
@@ -468,7 +485,7 @@ def poll_hh_negotiations_and_notify(bot_token: str, chat_id: int, access_token: 
                                     send_msg(bot_token, chat_id, msg, reply_markup={
                                         "inline_keyboard": [
                                             [{"text": "🚀 Открыть на HH", "url": vac_url}],
-                                            [{"text": "💼 Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}]
+                                            [{"text": "💼 Mini App", "web_app": {"url": get_miniapp_url()}}]
                                         ]
                                     })
                                 continue
@@ -491,7 +508,7 @@ def poll_hh_negotiations_and_notify(bot_token: str, chat_id: int, access_token: 
                                     send_msg(bot_token, chat_id, msg, reply_markup={
                                         "inline_keyboard": [
                                             [{"text": "🚀 Открыть на HH", "url": vac_url}],
-                                            [{"text": "💼 Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}]
+                                            [{"text": "💼 Mini App", "web_app": {"url": get_miniapp_url()}}]
                                         ]
                                     })
 
@@ -567,7 +584,7 @@ def poll_hh_negotiations_and_notify(bot_token: str, chat_id: int, access_token: 
                     send_msg(bot_token, chat_id, msg, reply_markup={
                         "inline_keyboard": [
                             [{"text": "🚀 Открыть чат на HH", "url": chat_url}],
-                            [{"text": "💼 Career Hub Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}]
+                            [{"text": "💼 Career Hub Mini App", "web_app": {"url": get_miniapp_url()}}]
                         ]
                     })
                 continue
@@ -591,7 +608,7 @@ def poll_hh_negotiations_and_notify(bot_token: str, chat_id: int, access_token: 
                     send_msg(bot_token, chat_id, msg, reply_markup={
                         "inline_keyboard": [
                             [{"text": "🚀 Открыть чат на HH", "url": chat_url}],
-                            [{"text": "💼 Career Hub Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}]
+                            [{"text": "💼 Career Hub Mini App", "web_app": {"url": get_miniapp_url()}}]
                         ]
                     })
 
@@ -701,7 +718,7 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                                 "inline_keyboard": [
                                     [
                                         {"text": "🔗 Открыть вакансию на HH", "url": link},
-                                        {"text": "💼 Открыть в Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}
+                                        {"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}
                                     ]
                                 ]
                             })
@@ -739,7 +756,7 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                                 "inline_keyboard": [
                                     [
                                         {"text": "🔗 Открыть вакансию на HH", "url": link},
-                                        {"text": "💼 Открыть в Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}
+                                        {"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}
                                     ]
                                 ]
                             })
@@ -767,7 +784,7 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                                 "inline_keyboard": [
                                     [{"text": "🚀 Пройти тест и откликнуться", "url": link}],
                                     [{"text": "✅ Отметить 'Откликнулся'", "callback_data": f"mark_applied_{v_id}"}],
-                                    [{"text": "💼 Открыть в Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}]
+                                    [{"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}]
                                 ]
                             })
                             return False, True
@@ -794,7 +811,7 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                                 "inline_keyboard": [
                                     [{"text": "🚀 Перейти к подаче заявки", "url": direct_url}],
                                     [{"text": "✅ Отметить 'Откликнулся'", "callback_data": f"mark_applied_{v_id}"}],
-                                    [{"text": "💼 Открыть в Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}]
+                                    [{"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}]
                                 ]
                             })
                             return False, True
@@ -845,7 +862,7 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                         ],
                         [
                             {"text": "🔄 Перегенерировать письмо", "callback_data": f"apply_{v_id}"},
-                            {"text": "💼 Открыть в Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}
+                            {"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}
                         ]
                     ]
                 })
@@ -863,7 +880,7 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                 ],
                 [
                     {"text": "✅ Отметить 'Откликнулся'", "callback_data": f"mark_applied_{v_id}"},
-                    {"text": "💼 Открыть в Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}
+                    {"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}
                 ]
             ]
         })

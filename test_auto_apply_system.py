@@ -464,7 +464,7 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         letter = bot.generate_cover_letter("dummy_key", "dummy_model", vacancy)
         self.assertIsNotNone(letter)
         self.assertIn("https://demo-resume.trycloudflare.com/", letter)
-        self.assertIn("https://park.shadowkek.space", letter)
+        self.assertIn(bot.get_portfolio_url(), letter)
         self.assertIn("Clean Architecture", letter)
         self.assertIn("Spring Boot 3", letter)
         self.assertIn("Готов выполнить тестовое задание", letter)
@@ -484,7 +484,7 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         letter = bot.generate_cover_letter("dummy_key", "dummy_model", vacancy)
         self.assertIsNotNone(letter)
         self.assertIn("https://demo-resume.trycloudflare.com/", letter)
-        self.assertIn("https://park.shadowkek.space", letter)
+        self.assertIn(bot.get_portfolio_url(), letter)
         self.assertIn("https://github.com/nikitos7626/park-client", letter)
         self.assertIn("https://github.com/nikitos7626/Park-server", letter)
         self.assertIn("React 18", letter)
@@ -631,7 +631,7 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         v_fs = {"title": "Junior Fullstack Developer", "company": "Acme", "role": "fullstack_js"}
         letter_fs = bot.generate_cover_letter("dummy_key", "invalid_model", v_fs)
         self.assertIn("https://demo-resume.trycloudflare.com", letter_fs)
-        self.assertIn("https://park.shadowkek.space", letter_fs)
+        self.assertIn(bot.get_portfolio_url(), letter_fs)
         self.assertIn("https://github.com/nikitos7626/park-client", letter_fs)
         self.assertIn("https://github.com/nikitos7626/Park-server", letter_fs)
 
@@ -639,14 +639,14 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         v_java = {"title": "Junior Java Developer", "company": "Acme", "role": "java"}
         letter_java = bot.generate_cover_letter("dummy_key", "invalid_model", v_java)
         self.assertIn("https://demo-resume.trycloudflare.com", letter_java)
-        self.assertIn("https://park.shadowkek.space", letter_java)
+        self.assertIn(bot.get_portfolio_url(), letter_java)
         self.assertIn("https://github.com/nikitos7626/BackendSpringBlog", letter_java)
 
         # AI & LLM fallback letter with pet project
         v_ai = {"title": "AI Engineer (LLM / RAG)", "company": "NeuroTech", "role": "ai_dev"}
         letter_ai = bot.generate_cover_letter("dummy_key", "invalid_model", v_ai)
         self.assertIn("https://demo-resume.trycloudflare.com", letter_ai)
-        self.assertIn("https://park.shadowkek.space", letter_ai)
+        self.assertIn(bot.get_portfolio_url(), letter_ai)
         self.assertIn("https://github.com/nikitos7626/mvideo-nlp", letter_ai)
         self.assertIn("Готов выполнить тестовое задание", letter_ai)
 
@@ -654,7 +654,7 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         v_py = {"title": "Junior Python Backend Developer", "company": "PyStudio", "role": "python_dev"}
         letter_py = bot.generate_cover_letter("dummy_key", "invalid_model", v_py)
         self.assertIn("https://demo-resume.trycloudflare.com", letter_py)
-        self.assertIn("https://park.shadowkek.space", letter_py)
+        self.assertIn(bot.get_portfolio_url(), letter_py)
         self.assertIn("https://github.com/nikitos7626/mvideo-nlp", letter_py)
         self.assertIn("https://github.com/nikitos7626/ExCalendar", letter_py)
         self.assertIn("Готов выполнить тестовое задание", letter_py)

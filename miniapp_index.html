@@ -59,7 +59,8 @@
   </style>
 </head>
 <body class="min-h-screen pb-20 select-none bg-slate-950 text-slate-100">
-  <div id="app" class="max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+  <!-- Main App Container (Hidden until authenticated) -->
+  <div id="app" class="hidden max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
 
     <!-- Header & Profile (Wide Responsive Bar) -->
     <header class="flex items-center justify-between pb-3 sm:pb-5 border-b border-slate-800/80 gap-2">
@@ -539,12 +540,14 @@
     }
 
     function showAuthModal() {
+      document.getElementById('app')?.classList.add('hidden');
       document.getElementById('authModal').classList.remove('hidden');
       if (window.lucide) lucide.createIcons();
     }
 
     function hideAuthModal() {
       document.getElementById('authModal').classList.add('hidden');
+      document.getElementById('app')?.classList.remove('hidden');
       if (pollIntervalId) {
         clearInterval(pollIntervalId);
         pollIntervalId = null;
@@ -552,7 +555,12 @@
     }
 
     function showAccessDenied(msg) {
-      hideAuthModal();
+      document.getElementById('app')?.classList.add('hidden');
+      document.getElementById('authModal').classList.add('hidden');
+      if (pollIntervalId) {
+        clearInterval(pollIntervalId);
+        pollIntervalId = null;
+      }
       if (msg) document.getElementById('deniedMessage').textContent = msg;
       document.getElementById('deniedModal').classList.remove('hidden');
       if (window.lucide) lucide.createIcons();
@@ -1233,6 +1241,10 @@
     // Settings & Cookie Modal
     async function openSettingsModal() {
       haptic();
+      if (!getAuthToken()) {
+        showAuthModal();
+        return;
+      }
       const modal = document.getElementById('settingsModal');
       modal.classList.remove('hidden');
       

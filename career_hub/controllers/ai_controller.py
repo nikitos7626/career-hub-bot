@@ -4,6 +4,7 @@ Handles Groq LLM scoring, structured JSON analysis, and customized cover letter 
 """
 
 import os
+import sys
 import re
 import json
 import time
@@ -35,7 +36,7 @@ def analyze_vacancy_with_groq(api_key: str, model: str, title: str, company: str
 - Дополнительные целевые роли (РАЗРАБОТКА ПО):
   • AI & LLM Engineer / Разработчик ИИ (Spring AI, LangChain, OpenAI/Groq API, AI-агенты, RAG, pgvector, prompt engineering)
   • Junior Python Backend Developer (Python 3, FastAPI, Flask, REST API, PostgreSQL, Docker, ООП, скрипты автоматизации и интеграции)
-  • Junior / Trainee Fullstack JS / Frontend Developer (JavaScript, TypeScript, React 18, Node.js, Express, Sequelize, REST API, MobX, Nginx, Linux VPS). Развернул и задеплоил живой веб-проект https://park.shadowkek.space
+  • Junior / Trainee Fullstack JS / Frontend Developer (JavaScript, TypeScript, React 18, Node.js, Express, Sequelize, REST API, MobX, Nginx, Linux VPS). Развернул и задеплоил живой fullstack веб-проект
   • Разработчик VPN/прокси (Xray, Sing-box, Remnawave, сетевые протоколы)
   • Junior / Intern Backend Developer (бэкенд, REST API)
 - Никита не имеет многолетнего коммерческого опыта в IT, но имеет сильные учебные и пет-проекты, понимание архитектуры и базы Computer Science.
@@ -162,6 +163,20 @@ def analyze_vacancy(api_key: str, model: str, vacancy: dict, delay: float = 2.5)
     )
 
 
+def get_portfolio_url() -> str:
+    bot_mod = sys.modules.get("bot") or sys.modules.get("__main__")
+    if bot_mod and hasattr(bot_mod, "load_config"):
+        try:
+            return bot_mod.load_config().get("portfolio_url") or os.environ.get("PORTFOLIO_URL") or "https://park.example.com"
+        except Exception:
+            pass
+    try:
+        from career_hub.models.config import load_config
+        return load_config().get("portfolio_url") or os.environ.get("PORTFOLIO_URL") or "https://park.example.com"
+    except Exception:
+        return os.environ.get("PORTFOLIO_URL") or "https://park.example.com"
+
+
 def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
     """Генерирует индивидуальное сопроводительное письмо с релевантными ссылками на пет-проекты."""
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -179,6 +194,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
     resume_url = (vacancy.get("resume_url") or cfg_data.get("resume_quick_tunnel_url") or os.environ.get("RESUME_QUICK_TUNNEL_URL", "")).strip()
     if resume_url and not resume_url.endswith("/"):
         resume_url += "/"
+    portfolio_url = (vacancy.get("portfolio_url") or cfg_data.get("portfolio_url") or get_portfolio_url()).strip()
 
     full_text = f"{clean_title} {clean_desc}".lower()
     is_vpn_dev = vacancy.get("role") == "vpn_dev" or any(k in full_text for k in ["remnawave", "xray", "vless", "sing-box"])
@@ -234,7 +250,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
 - Ссылки на проекты и резюме:
   • Резюме: {resume_url}
   • Проект по ИИ (ML/NLP): https://github.com/nikitos7626/mvideo-nlp
-  • Живой веб-проект (деплой): https://park.shadowkek.space
+  • Живой веб-проект (деплой): {portfolio_url}
 - Стек и фокус: AI / LLM интеграции (LLM API, Function Calling, RAG, AI-агенты, LangChain, Spring AI), бэкенд (Python/Java, REST API, PostgreSQL, Docker). Чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.
 - База и готовность: Базу по бэкенду, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
 
@@ -250,7 +266,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
    Прикрепляю ссылки на резюме и практические проекты:
    • Резюме: {resume_url}
    • Проект по ИИ (ML/NLP): https://github.com/nikitos7626/mvideo-nlp
-   • Сайт (деплой): https://park.shadowkek.space
+   • Сайт (деплой): {portfolio_url}
 3. Стек: AI / LLM интеграции (LLM API, Function Calling, RAG, AI-агенты, LangChain, Spring AI), бэкенд (Python/Java, REST API, PostgreSQL, Docker). Чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.
 4. Финал: Базу по бэкенду, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
 """
@@ -267,7 +283,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
   • Резюме: {resume_url}
   • Проект на Python (NLP/ML/AI): https://github.com/nikitos7626/mvideo-nlp
   • Telegram-бот на Python: https://github.com/nikitos7626/ExCalendar
-  • Сайт (деплой): https://park.shadowkek.space
+  • Сайт (деплой): {portfolio_url}
 - Стек и фокус: Python 3, FastAPI, PostgreSQL, Docker, REST API, чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.
 - База и готовность: Базу по Python, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
 
@@ -284,7 +300,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
    • Резюме: {resume_url}
    • Проект на Python (NLP/ML/AI): https://github.com/nikitos7626/mvideo-nlp
    • Telegram-бот на Python: https://github.com/nikitos7626/ExCalendar
-   • Сайт (деплой): https://park.shadowkek.space
+   • Сайт (деплой): {portfolio_url}
 3. Стек: Python 3, FastAPI, PostgreSQL, Docker, REST API, чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.
 4. Финал: Базу по Python, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
 """
@@ -299,7 +315,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
 Кандидат: Никита Фролов
 - Ссылки на резюме и пет-проекты:
   • Резюме: {resume_url}
-  • Сайт (деплой): https://park.shadowkek.space
+  • Сайт (деплой): {portfolio_url}
   • Репозиторий фронта: https://github.com/nikitos7626/park-client
   • Репозиторий бэка: https://github.com/nikitos7626/Park-server
 - Стек проекта: React 18 (MobX), Node.js (Express, Sequelize). Реализована JWT-авторизация, роли, интеграция с API. Всё сам развернул и настроил на Linux VPS под Nginx с SSL.
@@ -316,7 +332,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
 2. Обязательный блок ссылок буллетами:
    Прикрепляю ссылки на резюме и живой пет-проект, как указано в требованиях вакансии:
    • Резюме: {resume_url}
-   • Сайт (деплой): https://park.shadowkek.space
+   • Сайт (деплой): {portfolio_url}
    • Репозиторий фронта: https://github.com/nikitos7626/park-client
    • Репозиторий бэка: https://github.com/nikitos7626/Park-server
 3. Стек проекта: React 18 (MobX), Node.js (Express, Sequelize). Реализована JWT-авторизация, роли, интеграция с API. Всё сам развернул и настроил на Linux VPS под Nginx с SSL.
@@ -334,7 +350,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
 - Ссылки на резюме и пет-проекты:
   • Резюме: {resume_url}
   • Репозиторий бэкенда: https://github.com/nikitos7626/BackendSpringBlog
-  • Сайт (деплой): https://park.shadowkek.space
+  • Сайт (деплой): {portfolio_url}
 - Стек проекта: Java 21, Spring Boot 3 (Spring Data JPA, Security), PostgreSQL, Docker. Реализовал архитектуру Clean Architecture и REST API. Все сервисы развернул и настроил сам на Linux VPS под Nginx с SSL.
 - База и готовность: Базу по Java Core, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
 
@@ -350,8 +366,8 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
    Прикрепляю ссылки на резюме и практические проекты:
    • Резюме: {resume_url}
    • Репозиторий бэкенда: https://github.com/nikitos7626/BackendSpringBlog
-   • Сайт (деплой): https://park.shadowkek.space
-3. Стек: Java 21, Spring Boot 3 (Spring Data JPA, Security), PostgreSQL, Docker. Реализовал архитектуру Clean Architecture и REST API. Все сервисы развернул и настроил на Linux VPS под Nginx с SSL.
+   • Сайт (деплой): {portfolio_url}
+3. Стек: Java 21, Spring Boot 3 (Spring Data JPA, Security), PostgreSQL, Docker. Реализовал архитектуру Clean Architecture и REST API. Все сервисы развернул и настроил сам на Linux VPS под Nginx с SSL.
 4. Финал: Базу по Java Core, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
 """
 
@@ -393,8 +409,8 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
                     elif not is_vpn_dev:
                         if "BackendSpringBlog" not in letter:
                             letter = letter + "\n• Репозиторий бэкенда: https://github.com/nikitos7626/BackendSpringBlog"
-                    if not is_vpn_dev and "park.shadowkek.space" not in letter:
-                        letter = letter + "\n• Живой проект (деплой): https://park.shadowkek.space"
+                    if not is_vpn_dev and portfolio_url not in letter:
+                        letter = letter + f"\n• Живой проект (деплой): {portfolio_url}"
                     return letter
                 elif resp.status_code == 429:
                     logger.warning(f"Groq Rate Limit (429) при генерации Cover Letter на {current_model}. Пробуем резервную...")
@@ -414,7 +430,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
             f"Прикрепляю ссылки на резюме и практические проекты:\n"
             f"• Резюме: {resume_url}\n"
             f"• Проект по ИИ (ML/NLP): https://github.com/nikitos7626/mvideo-nlp\n"
-            f"• Сайт (деплой): https://park.shadowkek.space\n\n"
+            f"• Сайт (деплой): {portfolio_url}\n\n"
             f"Стек: AI / LLM интеграции (LLM API, Function Calling, RAG, AI-агенты, LangChain, Spring AI), бэкенд (Python/Java, REST API, PostgreSQL, Docker). Чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.\n\n"
             f"Базу по бэкенду, ООП, SQL и Git понимаю. Готов выполнить тестовое задание."
         )
@@ -427,7 +443,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
             f"• Резюме: {resume_url}\n"
             f"• Проект на Python (NLP/ML/AI): https://github.com/nikitos7626/mvideo-nlp\n"
             f"• Telegram-бот на Python: https://github.com/nikitos7626/ExCalendar\n"
-            f"• Сайт (деплой): https://park.shadowkek.space\n\n"
+            f"• Сайт (деплой): {portfolio_url}\n\n"
             f"Стек: Python 3, FastAPI, PostgreSQL, Docker, REST API, чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.\n\n"
             f"Базу по Python, ООП, SQL и Git понимаю. Готов выполнить тестовое задание."
         )
@@ -437,7 +453,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
             f"Привет! Откликаюсь на вакансию {clean_title}.\n\n"
             f"Прикрепляю ссылки на резюме и живой пет-проект, как указано в требованиях вакансии:\n"
             f"• Резюме: {resume_url}\n"
-            f"• Сайт (деплой): https://park.shadowkek.space\n"
+            f"• Сайт (деплой): {portfolio_url}\n"
             f"• Репозиторий фронта: https://github.com/nikitos7626/park-client\n"
             f"• Репозиторий бэка: https://github.com/nikitos7626/Park-server\n\n"
             f"Стек проекта: React 18 (MobX), Node.js (Express, Sequelize). Реализована JWT-авторизация, роли, интеграция с API. Всё сам развернул и настроил на Linux VPS под Nginx с SSL.\n\n"
@@ -450,7 +466,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
             f"Здравствуйте! Откликаюсь на позицию {clean_title}{comp_str}.\n\n"
             f"Прикрепляю ссылки на резюме и проекты:\n"
             f"• Резюме: {resume_url}\n"
-            f"• Развёрнутые сервисы (деплой): https://park.shadowkek.space\n\n"
+            f"• Развёрнутые сервисы (деплой): {portfolio_url}\n\n"
             f"Стек: Xray-core, VLESS (Reality, Vision), Sing-box, панели Remnawave и 3X-UI, маршрутизация трафика. Развёртывание и администрирование узлов на Linux VPS под Nginx с SSL.\n\n"
             f"Сетевой стек (TCP/IP, routing, DNS, TLS), Linux и Git понимаю. Готов выполнить тестовое задание."
         )
@@ -461,7 +477,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
         f"Прикрепляю ссылки на резюме и практические проекты:\n"
         f"• Резюме: {resume_url}\n"
         f"• Репозиторий бэкенда: https://github.com/nikitos7626/BackendSpringBlog\n"
-        f"• Сайт (деплой): https://park.shadowkek.space\n\n"
+        f"• Сайт (деплой): {portfolio_url}\n\n"
         f"Стек проекта: Java 21, Spring Boot 3 (Spring Data JPA, Security), PostgreSQL, Docker. Реализовал архитектуру Clean Architecture и REST API. Все сервисы развернул и настроил сам на Linux VPS под Nginx с SSL.\n\n"
         f"Базу по Java Core, ООП, SQL и Git понимаю. Готов выполнить тестовое задание."
     )

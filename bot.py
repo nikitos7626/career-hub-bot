@@ -126,6 +126,7 @@ from career_hub.controllers.ai_controller import (
     analyze_vacancy_with_groq,
     generate_cover_letter,
     format_ai_vacancy_message,
+    get_portfolio_url,
 )
 from career_hub.controllers.auto_apply import (
     get_hh_headers,
@@ -139,6 +140,7 @@ from career_hub.controllers.auto_apply import (
     remove_vacancy_from_profile_and_history,
     poll_hh_negotiations_and_notify,
     process_vacancy_auto_apply_and_notify,
+    get_miniapp_url,
 )
 
 # =====================================================================

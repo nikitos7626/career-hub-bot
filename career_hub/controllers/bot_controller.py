@@ -47,6 +47,7 @@ from career_hub.controllers.ai_controller import (
 from career_hub.controllers.auto_apply import (
     poll_hh_negotiations_and_notify,
     process_vacancy_auto_apply_and_notify,
+    get_miniapp_url,
 )
 from career_hub.views.auth_view import (
     create_user_session,
@@ -215,7 +216,7 @@ def check_and_send_scheduled_digest(bot_token, chat_id, config):
         )
         reply_markup = {
             "inline_keyboard": [
-                [{"text": "💼 Открыть Career Hub Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}]
+                [{"text": "💼 Открыть Career Hub Mini App", "web_app": {"url": get_miniapp_url()}}]
             ]
         }
         send_msg_fn(bot_token, chat_id, text, reply_markup=reply_markup)
@@ -284,7 +285,7 @@ def telegram_updates_worker():
                         if cb_data == "send_login_link":
                             ans_cb_fn(token, cb_id, "Генерация ссылки...")
                             ot_token = create_ot_fn(from_user)
-                            login_url = f"https://jobs.shadowkek.space/?auth={ot_token}"
+                            login_url = f"{get_miniapp_url().rstrip('/')}/?auth={ot_token}"
                             send_msg_fn(token, chat_id, 
                                 "🔑 <b>Ссылка для входа в Career Hub на ПК:</b>\n\n"
                                 f"👉 <b><a href='{login_url}'>Нажмите здесь для входа</a></b>\n\n"
@@ -351,7 +352,7 @@ def telegram_updates_worker():
                                             {"text": "🔄 Перегенерировать", "callback_data": f"apply_{v_id}"}
                                         ],
                                         [
-                                            {"text": "💼 Открыть в Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}
+                                            {"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}
                                         ]
                                     ]
                                 }
@@ -462,7 +463,7 @@ def telegram_updates_worker():
                             )
                             send_msg_fn(token, chat_id, text, reply_markup={
                                 "inline_keyboard": [
-                                    [{"text": "💼 Открыть Career Hub Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}],
+                                    [{"text": "💼 Открыть Career Hub Mini App", "web_app": {"url": get_miniapp_url()}}],
                                     [{"text": "🔑 Вход на ПК", "callback_data": "send_login_link"}]
                                 ]
                             })
@@ -500,7 +501,7 @@ def telegram_updates_worker():
                                         "Окно в браузере обновится автоматически через секунду.",
                                         reply_markup={
                                             "inline_keyboard": [
-                                                [{"text": "💼 Открыть в Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}]
+                                                [{"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}]
                                             ]
                                         }
                                     )
@@ -525,7 +526,7 @@ def telegram_updates_worker():
                                     "🖥️ Вход на компьютере выполнен успешно! Сессия сохранена на <b>30 дней</b>.",
                                     reply_markup={
                                         "inline_keyboard": [
-                                            [{"text": "💼 Открыть в Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}]
+                                            [{"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}]
                                         ]
                                     }
                                 )
@@ -537,7 +538,7 @@ def telegram_updates_worker():
                         # Быстрая ссылка на вход через команду /login или /web
                         if msg_text in ["/login", "/web"]:
                             ot_token = create_ot_fn(from_user)
-                            login_url = f"https://jobs.shadowkek.space/?auth={ot_token}"
+                            login_url = f"{get_miniapp_url().rstrip('/')}/?auth={ot_token}"
                             send_msg_fn(token, msg_chat_id, 
                                 "🔑 <b>Ссылка для входа в Career Hub на ПК:</b>\n\n"
                                 f"👉 <b><a href='{login_url}'>Нажмите сюда для автоматического входа</a></b>\n\n"
@@ -546,7 +547,7 @@ def telegram_updates_worker():
                                 reply_markup={
                                     "inline_keyboard": [
                                         [{"text": "🚀 Войти в браузере", "url": login_url}],
-                                        [{"text": "💼 Открыть в Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}]
+                                        [{"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}]
                                     ]
                                 }
                             )
@@ -699,7 +700,7 @@ def telegram_updates_worker():
                                 f"Откройте веб-приложение для просмотра деталей.",
                                 reply_markup={
                                     "inline_keyboard": [
-                                        [{"text": "💼 Открыть Career Hub Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}]
+                                        [{"text": "💼 Открыть Career Hub Mini App", "web_app": {"url": get_miniapp_url()}}]
                                     ]
                                 }
                             )
@@ -728,7 +729,7 @@ def telegram_updates_worker():
                             )
                             reply_markup = {
                                 "inline_keyboard": [
-                                    [{"text": "💼 Открыть Career Hub Mini App", "web_app": {"url": "https://jobs.shadowkek.space/"}}],
+                                    [{"text": "💼 Открыть Career Hub Mini App", "web_app": {"url": get_miniapp_url()}}],
                                     [{"text": "🔑 Войти на ПК", "callback_data": "send_login_link"}, {"text": "🔄 Проверить HH", "callback_data": "hh_check_now"}],
                                     [{"text": "🧹 Очистить отказы", "callback_data": "btn_clean_discards"}, {"text": "⚙️ Настройки", "callback_data": "btn_settings"}]
                                 ]

@@ -29,6 +29,9 @@ DEFAULT_CONFIG = {
     "hh_web_cookie": "",
     "hh_resume_hash": os.environ.get("HH_RESUME_HASH", ""),
     "resume_quick_tunnel_url": os.environ.get("RESUME_QUICK_TUNNEL_URL", ""),
+    "miniapp_url": os.environ.get("MINIAPP_URL", "https://jobs.example.com/"),
+    "portfolio_url": os.environ.get("PORTFOLIO_URL", "https://park.example.com"),
+    "contact_email": os.environ.get("CONTACT_EMAIL", "applicant@example.com"),
     "daily_digest_enabled": True,
     "last_digest_time": 0,
     "check_interval_seconds": 600,
@@ -125,7 +128,7 @@ CANDIDATE_PROFILE = """
 3. Junior Python Backend Developer:
    - Стек: Python 3, FastAPI, Flask, REST API, PostgreSQL, Docker, ООП, скрипты автоматизации и интеграции.
 4. Junior / Trainee Fullstack JS / Frontend:
-   - React 18, Node.js, Express, Sequelize, REST API, Nginx, Linux VPS. Деплой https://park.shadowkek.space
+   - React 18, Node.js, Express, Sequelize, REST API, Nginx, Linux VPS. Деплой веб-проектов и SPA.
 5. Разработчик VPN / Прокси сервисов (Xray, Remnawave, VLESS, Sing-box, сетевые протоколы).
 6. Junior / Intern Backend Developer (стажер или младший бэкенд-разработчик).
 
