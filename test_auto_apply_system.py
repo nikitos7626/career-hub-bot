@@ -784,6 +784,83 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         self.assertIn("Отказ автоматически удален", sent_msg)
         self.assertIn("Junior AI Developer", sent_msg)
 
+
+class TestSecurityAndHardening(unittest.TestCase):
+    def test_one_time_token_atomic_single_use(self):
+        from career_hub.views.auth_view import create_one_time_token, consume_one_time_token
+        token = create_one_time_token(1139872910)
+        self.assertTrue(bool(token))
+        # First consumption must succeed
+        uid = consume_one_time_token(token)
+        self.assertEqual(uid, 1139872910)
+        # Second consumption must fail (replay protection)
+        self.assertIsNone(consume_one_time_token(token))
+        # Invalid token must return None
+        self.assertIsNone(consume_one_time_token("invalid_token_123"))
+
+    def test_ip_rate_limiting(self):
+        from career_hub.views.http_server import _check_ip_rate_limit, _login_ip_rate_limits, _login_ip_lock
+        with _login_ip_lock:
+            _login_ip_rate_limits.clear()
+
+        test_ip = "192.0.2.42"
+        for _ in range(5):
+            self.assertTrue(_check_ip_rate_limit(test_ip, max_requests=5, window_seconds=60))
+
+        # 6th request must be blocked
+        self.assertFalse(_check_ip_rate_limit(test_ip, max_requests=5, window_seconds=60))
+
+        # Different IP must still be allowed
+        self.assertTrue(_check_ip_rate_limit("192.0.2.43", max_requests=5, window_seconds=60))
+
+    def test_telegram_init_data_replay_attack_prevention(self):
+        import time
+        import hmac
+        import hashlib
+        import urllib.parse
+        from career_hub.views.auth_view import validate_telegram_init_data
+
+        bot_token = "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+        secret_key = hmac.new(b"WebAppData", bot_token.encode("utf-8"), hashlib.sha256).digest()
+
+        def make_init_data(auth_date, user_id=1139872910):
+            params = {
+                "auth_date": str(auth_date),
+                "query_id": "AAHdF6IQAAAAAN0XohDhrOrc",
+                "user": json.dumps({"id": user_id, "first_name": "Nikita"})
+            }
+            data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(params.items()))
+            h = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
+            params["hash"] = h
+            return urllib.parse.urlencode(params)
+
+        now = int(time.time())
+
+        # Fresh signature: valid
+        valid_data = make_init_data(now - 30)
+        res = validate_telegram_init_data(valid_data, bot_token)
+        self.assertIsNotNone(res)
+        self.assertEqual(res["id"], 1139872910)
+
+        # Expired signature (25 hours ago): rejected
+        expired_data = make_init_data(now - 90000)
+        self.assertIsNone(validate_telegram_init_data(expired_data, bot_token))
+
+        # Future signature (> 24 hours in future): rejected
+        future_data = make_init_data(now + 90000)
+        self.assertIsNone(validate_telegram_init_data(future_data, bot_token))
+
+        # Missing auth_date: rejected
+        params_no_date = {
+            "query_id": "AAHdF6IQAAAAAN0XohDhrOrc",
+            "user": json.dumps({"id": 1139872910, "first_name": "Nikita"})
+        }
+        dcs = "\n".join(f"{k}={v}" for k, v in sorted(params_no_date.items()))
+        params_no_date["hash"] = hmac.new(secret_key, dcs.encode("utf-8"), hashlib.sha256).hexdigest()
+        self.assertIsNone(validate_telegram_init_data(urllib.parse.urlencode(params_no_date), bot_token))
+
+
 if __name__ == "__main__":
     unittest.main()
+
 

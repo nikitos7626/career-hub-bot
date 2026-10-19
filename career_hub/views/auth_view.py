@@ -11,6 +11,7 @@ import hmac
 import secrets
 import hashlib
 import logging
+import threading
 import urllib.parse
 import requests
 from career_hub.models.config import load_config
@@ -19,6 +20,7 @@ from career_hub.models.storage import load_sessions, save_sessions, sessions_loc
 logger = logging.getLogger("career_hub.views.auth")
 
 one_time_tokens = {}
+one_time_tokens_lock = threading.RLock()
 _BOT_USERNAME_CACHE = None
 
 
@@ -93,28 +95,44 @@ def revoke_session_token(token: str):
 
 
 def create_one_time_token(user_id: int) -> str:
-    """Генерирует одноразовый токен авторизации (TTL 10 минут)."""
+    """Генерирует одноразовый токен авторизации (TTL 10 минут) с автоматической очисткой устаревших."""
     token = secrets.token_urlsafe(24)
-    one_time_tokens[token] = {
-        "user_id": int(user_id),
-        "expires_at": time.time() + 600
-    }
+    with one_time_tokens_lock:
+        now = time.time()
+        # Очистка устаревших токенов
+        expired = [k for k, v in one_time_tokens.items() if v.get("expires_at", 0) < now]
+        for k in expired:
+            one_time_tokens.pop(k, None)
+        # Ограничение размера пула для предотвращения утечки памяти
+        if len(one_time_tokens) >= 50:
+            oldest = sorted(one_time_tokens.items(), key=lambda x: x[1].get("expires_at", 0))[:25]
+            for k, _ in oldest:
+                one_time_tokens.pop(k, None)
+
+        one_time_tokens[token] = {
+            "user_id": int(user_id),
+            "expires_at": now + 600
+        }
     return token
 
 
 def consume_one_time_token(token: str) -> int | None:
-    """Проверяет и погашает одноразовый токен."""
-    if not token or token not in one_time_tokens:
+    """Проверяет и атомарно погашает одноразовый токен."""
+    if not token:
         return None
-    data = one_time_tokens.pop(token)
-    if data.get("expires_at", 0) < time.time():
-        return None
-    return data.get("user_id")
+    with one_time_tokens_lock:
+        data = one_time_tokens.pop(token, None)
+        if not data:
+            return None
+        if data.get("expires_at", 0) < time.time():
+            return None
+        return data.get("user_id")
 
 
 def validate_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
     """
-    Проверяет цифровую подпись initData от Telegram WebApp по алгоритму HMAC-SHA256.
+    Проверяет цифровую подпись initData от Telegram WebApp по алгоритму HMAC-SHA256
+    с защитой от Replay-атак (проверка auth_date).
     """
     if not init_data:
         return None
@@ -123,6 +141,20 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
         auth_hash = parsed.pop("hash", None)
         if not auth_hash:
             return None
+
+        # Защита от Replay-атак: проверка времени подписи Telegram (максимум 24 часа)
+        auth_date_str = parsed.get("auth_date")
+        if not auth_date_str:
+            logger.warning("Telegram initData отклонена: отсутствует auth_date")
+            return None
+        try:
+            auth_date = int(auth_date_str)
+            if abs(time.time() - auth_date) > 86400:
+                logger.warning(f"Telegram initData отклонена: срок действия подписи истёк (auth_date={auth_date})")
+                return None
+        except (ValueError, TypeError):
+            return None
+
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
         secret_key = hmac.new(b"WebAppData", bot_token.encode("utf-8"), hashlib.sha256).digest()
         calc_hash = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()

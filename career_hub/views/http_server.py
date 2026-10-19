@@ -42,6 +42,24 @@ logger = logging.getLogger("career_hub.views.http")
 
 pending_logins = {}
 pending_logins_lock = threading.RLock()
+_login_ip_rate_limits = {}
+_login_ip_lock = threading.RLock()
+
+
+def _check_ip_rate_limit(ip: str, max_requests: int = 10, window_seconds: int = 60) -> bool:
+    """Ограничивает частоту запросов на авторизацию с одного IP для защиты от DoS и перебора."""
+    with _login_ip_lock:
+        now = time.time()
+        for k in list(_login_ip_rate_limits.keys()):
+            _login_ip_rate_limits[k] = [t for t in _login_ip_rate_limits[k] if now - t < window_seconds]
+            if not _login_ip_rate_limits[k]:
+                del _login_ip_rate_limits[k]
+
+        reqs = _login_ip_rate_limits.setdefault(ip, [])
+        if len(reqs) >= max_requests:
+            return False
+        reqs.append(now)
+        return True
 
 
 def _get_bot_ref(attr_name, fallback):
@@ -62,7 +80,31 @@ def _get_bot_ref(attr_name, fallback):
 
 class MiniAppRequestHandler(BaseHTTPRequestHandler):
     def _send_cors_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # Защитные HTTP-заголовки
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        self.send_header("Content-Security-Policy", "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org;")
+        
+        # Валидация Origin
+        origin = self.headers.get("Origin", "")
+        host = self.headers.get("Host", "")
+        allowed = None
+        if origin:
+            try:
+                parsed_orig = urlparse(origin)
+                hostname = parsed_orig.hostname or ""
+                if hostname in ["localhost", "127.0.0.1"] or hostname.endswith(".telegram.org") or hostname == "telegram.org" or (host and hostname in host):
+                    allowed = origin
+            except Exception:
+                pass
+
+        if allowed:
+            self.send_header("Access-Control-Allow-Origin", allowed)
+            self.send_header("Access-Control-Allow-Credentials", "true")
+            self.send_header("Vary", "Origin")
+        else:
+            self.send_header("Access-Control-Allow-Origin", "*")
+
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
@@ -335,6 +377,14 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/")
 
         content_length = int(self.headers.get("Content-Length", 0))
+        if content_length > 1024 * 1024:
+            self.send_response(413)
+            self._send_cors_headers()
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": False, "error": "Превышен максимальный размер тела запроса (1MB)"}).encode("utf-8"))
+            return
+
         post_body = self.rfile.read(content_length)
 
         try:
@@ -415,16 +465,39 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
             return
 
         elif path == "/api/auth/request_login_session":
-            s_id = secrets.token_hex(16)
-            code = f"{secrets.randbelow(900000) + 100000}"
+            client_ip = self.client_address[0] if self.client_address else "unknown"
+            if not _check_ip_rate_limit(client_ip, max_requests=10, window_seconds=60):
+                self.send_response(429)
+                self._send_cors_headers()
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": False, "error": "Слишком много запросов на вход. Подождите 1 минуту."}).encode("utf-8"))
+                return
+
             p_logins = _get_bot_ref("pending_logins", pending_logins)
             p_lock = _get_bot_ref("pending_logins_lock", pending_logins_lock)
             with p_lock:
                 now = time.time()
-                to_del = [k for k, v in p_logins.items() if now - v.get("created_at", 0) > 900]
+                # Удаляем сессии старше 15 минут
+                to_del = [k for k, v in p_logins.items() if now - v.get("created_at", 0) > 900 or v.get("approved")]
                 for k in to_del:
                     del p_logins[k]
 
+                # Ограничиваем пул одновременных сессий
+                if len(p_logins) >= 15:
+                    oldest = sorted(p_logins.items(), key=lambda x: x[1].get("created_at", 0))[:5]
+                    for k, _ in oldest:
+                        p_logins.pop(k, None)
+
+                # Исключаем коллизии кодов
+                existing_codes = {v.get("code") for v in p_logins.values() if not v.get("approved")}
+                code = f"{secrets.randbelow(900000) + 100000}"
+                for _ in range(50):
+                    if code not in existing_codes:
+                        break
+                    code = f"{secrets.randbelow(900000) + 100000}"
+
+                s_id = secrets.token_hex(16)
                 p_logins[s_id] = {
                     "code": code,
                     "created_at": now,
