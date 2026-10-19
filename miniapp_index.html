@@ -335,13 +335,26 @@
 
           <!-- Spoiler / instruction -->
           <details class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 cursor-pointer">
-            <summary class="hover:text-indigo-300 select-none">Инструкция: как взять куки за 15 секунд</summary>
-            <ol class="list-decimal list-inside space-y-1 mt-2 text-slate-400 pl-1">
-              <li>Откройте <code class="text-indigo-300 font-mono">hh.ru</code> в браузере, где вы залогинены.</li>
-              <li>Нажмите <kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px]">F12</kbd> (DevTools) → вкладка <b>Сеть (Network)</b>.</li>
-              <li>Обновите страницу (<kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px]">F5</kbd>) и кликните на первый запрос к <code class="text-indigo-300 font-mono">hh.ru</code>.</li>
-              <li>В блоке <b>Заголовки запроса (Request Headers)</b> найдите строку <b>Cookie</b>, скопируйте её значение и вставьте сюда.</li>
-            </ol>
+            <summary class="hover:text-indigo-300 select-none font-semibold text-slate-300">💡 Какие именно куки нужны и как их скопировать?</summary>
+            <div class="space-y-2 mt-2 text-slate-400 pl-1 leading-relaxed">
+              <p>Для автооткликов боту критически необходимы всего <b>2 ключевых параметра</b> из cookies вашего аккаунта:</p>
+              <div class="p-2 rounded-xl bg-slate-900 border border-slate-800 font-mono text-[11px] space-y-1 text-slate-300">
+                <div>🔑 <b class="text-indigo-400">hhtoken</b> — ваш токен авторизации на hh.ru (обязательно)</div>
+                <div>🛡️ <b class="text-indigo-400">_xsrf</b> — токен защиты от подделки запросов (обязательно для отправки формы)</div>
+                <div class="text-[10px] text-slate-500">Опционально: <code>hhuid</code>, <code>hhul</code>, <code>redirect_host</code></div>
+              </div>
+              <p class="font-semibold text-slate-300 pt-1">Два простых способа скопировать:</p>
+              <ol class="list-decimal list-inside space-y-1.5 pl-1">
+                <li>
+                  <b>Способ 1 (Самый быстрый, в 1 клик):</b>
+                  Откройте <code class="text-indigo-300 font-mono">hh.ru</code> → Нажмите <kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px]">F12</kbd> → вкладка <b>Сеть (Network)</b> → обновите страницу (<kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px]">F5</kbd>) → кликните на первый запрос <code class="text-indigo-300 font-mono">hh.ru</code> → справа в блоке <b>Заголовки запроса (Request Headers)</b> найдите строку <b>Cookie</b> → правый клик → <b>Copy value</b>. Вставьте сюда.
+                </li>
+                <li>
+                  <b>Способ 2 (Из таблицы Application / Хранилище):</b>
+                  Если вы открыли таблицу кук (<kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px]">F12</kbd> → Application → Cookies → hh.ru), вы можете просто выделить всю таблицу (Ctrl+A / строки) и вставить прямо в это поле — <b>бот сам автоматически распознает и склеит нужные куки</b>, либо введите вручную: <code class="text-indigo-300 font-mono">hhtoken=...; _xsrf=...</code>
+                </li>
+              </ol>
+            </div>
           </details>
         </div>
 
@@ -1205,9 +1218,41 @@
       document.getElementById('cookieCheckResult').classList.add('hidden');
     }
 
+    function normalizeCookieInput(raw) {
+      if (!raw) return '';
+      raw = raw.trim();
+      // Если это уже стандартный заголовок key=val; key2=val2
+      if (raw.includes('=') && !raw.includes('\t') && !raw.includes('\n')) {
+        return raw;
+      }
+      // Если вставлена таблица из DevTools (Application -> Cookies) или несколько строк
+      const lines = raw.split(/\r?\n/);
+      const cookieMap = {};
+      for (const line of lines) {
+        const parts = line.split('\t').map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          cookieMap[parts[0]] = parts[1];
+        } else if (line.includes('=')) {
+          const subParts = line.split(';');
+          for (const sp of subParts) {
+            const [k, v] = sp.split('=', 2);
+            if (k && v) cookieMap[k.trim()] = v.trim();
+          }
+        }
+      }
+      if (Object.keys(cookieMap).length > 0) {
+        return Object.entries(cookieMap).map(([k, v]) => `${k}=${v}`).join('; ');
+      }
+      return raw;
+    }
+
     async function testCookie() {
       haptic();
-      const cookieVal = document.getElementById('cookieInput').value.trim();
+      const rawVal = document.getElementById('cookieInput').value;
+      const cookieVal = normalizeCookieInput(rawVal);
+      if (cookieVal && cookieVal !== rawVal.trim()) {
+        document.getElementById('cookieInput').value = cookieVal;
+      }
       const resultDiv = document.getElementById('cookieCheckResult');
       const btn = document.getElementById('testCookieBtn');
       
@@ -1256,7 +1301,11 @@
 
     async function saveAllSettings(cookieOnly = false) {
       haptic();
-      const cookieVal = document.getElementById('cookieInput').value.trim();
+      const rawVal = document.getElementById('cookieInput').value;
+      const cookieVal = normalizeCookieInput(rawVal);
+      if (cookieVal && cookieVal !== rawVal.trim()) {
+        document.getElementById('cookieInput').value = cookieVal;
+      }
       const autoApply = document.getElementById('settingAutoApply').checked;
       const minScore = parseInt(document.getElementById('settingMinScore').value, 10);
       const resultDiv = document.getElementById('cookieCheckResult');
