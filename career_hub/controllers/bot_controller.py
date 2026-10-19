@@ -61,9 +61,12 @@ logger = logging.getLogger("career_hub.controllers.bot")
 
 
 def _get_bot_ref(attr_name, fallback):
-    bot_mod = sys.modules.get("bot")
+    bot_mod = sys.modules.get("bot") or sys.modules.get("__main__")
     if bot_mod and hasattr(bot_mod, attr_name):
         return getattr(bot_mod, attr_name)
+    bot_ctrl = sys.modules.get("career_hub.controllers.bot_controller")
+    if bot_ctrl and hasattr(bot_ctrl, attr_name):
+        return getattr(bot_ctrl, attr_name)
     return fallback
 
 

@@ -143,20 +143,30 @@
 
     <!-- Status Tabs Nav (Wide segmented control) -->
     <div class="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-900/90 border border-slate-800/80 custom-scroll overflow-x-auto text-xs font-medium mb-4 sm:w-fit">
-      <button onclick="switchTab('inbox')" id="tab_inbox" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-2 bg-indigo-600 text-white shadow-sm font-semibold">
-        <i data-lucide="inbox" class="w-4 h-4"></i> Новые
+      <button onclick="switchTab('inbox')" id="tab_inbox" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-sm font-semibold">
+        <i data-lucide="inbox" class="w-4 h-4"></i>
+        <span>Новые</span>
+        <span id="tabCount_inbox" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 font-bold"></span>
       </button>
-      <button onclick="switchTab('saved')" id="tab_saved" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-2 text-slate-400 hover:text-white">
-        <i data-lucide="star" class="w-4 h-4"></i> В планах
+      <button onclick="switchTab('saved')" id="tab_saved" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+        <i data-lucide="star" class="w-4 h-4"></i>
+        <span>В планах</span>
+        <span id="tabCount_saved" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 font-bold"></span>
       </button>
-      <button onclick="switchTab('applied')" id="tab_applied" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-2 text-slate-400 hover:text-white">
-        <i data-lucide="send" class="w-4 h-4"></i> Отклики
+      <button onclick="switchTab('applied')" id="tab_applied" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+        <i data-lucide="send" class="w-4 h-4"></i>
+        <span>Отклики</span>
+        <span id="tabCount_applied" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-bold"></span>
       </button>
-      <button onclick="switchTab('interview')" id="tab_interview" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-2 text-slate-400 hover:text-white">
-        <i data-lucide="phone-call" class="w-4 h-4"></i> Интервью
+      <button onclick="switchTab('interview')" id="tab_interview" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+        <i data-lucide="phone-call" class="w-4 h-4"></i>
+        <span>Интервью</span>
+        <span id="tabCount_interview" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-bold"></span>
       </button>
-      <button onclick="switchTab('archived')" id="tab_archived" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-2 text-slate-400 hover:text-white">
-        <i data-lucide="archive" class="w-4 h-4"></i> Архив
+      <button onclick="switchTab('archived')" id="tab_archived" class="tab-btn px-4 py-2 rounded-xl whitespace-nowrap transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+        <i data-lucide="archive" class="w-4 h-4"></i>
+        <span>Архив</span>
+        <span id="tabCount_archived" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-400 font-bold"></span>
       </button>
     </div>
 
@@ -185,6 +195,7 @@
         <button onclick="setRoleFilter('java_ai')" id="rf_java_ai" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🤖 Java AI</button>
         <button onclick="setRoleFilter('vpn_dev')" id="rf_vpn_dev" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🛡️ VPN (Xray)</button>
         <button onclick="setRoleFilter('backend')" id="rf_backend" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">⚡ Backend Dev</button>
+        <button onclick="setRoleFilter('fullstack_js')" id="rf_fullstack_js" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">💻 Frontend / JS</button>
         
         <div class="hidden sm:block h-5 w-px bg-slate-800 mx-1"></div>
 
@@ -655,6 +666,22 @@
       document.getElementById('statSaved').textContent = stats.saved ?? 0;
       document.getElementById('statApplied').textContent = stats.applied ?? 0;
       document.getElementById('statInterview').textContent = stats.interview ?? 0;
+
+      const setBadge = (tab, count) => {
+        const el = document.getElementById(`tabCount_${tab}`);
+        if (!el) return;
+        if (count > 0) {
+          el.textContent = count;
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      };
+      setBadge('inbox', stats.inbox ?? 0);
+      setBadge('saved', stats.saved ?? 0);
+      setBadge('applied', stats.applied ?? 0);
+      setBadge('interview', stats.interview ?? 0);
+      setBadge('archived', stats.archived ?? 0);
     }
 
     // Навигация по табам
@@ -733,6 +760,8 @@
         if (filterRole !== 'all') {
           if (filterRole === 'backend') {
             if (role !== 'backend' && role !== 'python_dev') return false;
+          } else if (filterRole === 'fullstack_js') {
+            if (role !== 'fullstack_js' && role !== 'frontend' && role !== 'frontend_dev') return false;
           } else if (role !== filterRole) {
             return false;
           }
@@ -846,6 +875,7 @@
         if (role === 'vpn_dev') roleBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">🛡️ VPN (Xray)</span>`;
         else if (role === 'java_ai') roleBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-violet-500/10 text-violet-400 border border-violet-500/20">🤖 Java AI</span>`;
         else if (role === 'backend' || role === 'python_dev') roleBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">⚡ Backend Dev</span>`;
+        else if (role === 'fullstack_js' || role === 'frontend' || role === 'frontend_dev') roleBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-pink-500/10 text-pink-300 border border-pink-500/20">💻 Frontend / JS</span>`;
 
         let sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">🔴 HeadHunter</span>`;
         if (v.source === 'habr') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">🔵 Хабр</span>`;
@@ -879,7 +909,18 @@
         const recom = v.analysis?.recommendation || '';
 
         const vStatus = statuses[v.id]?.status || 'inbox';
-        const appliedAt = statuses[v.id]?.applied_at ? `<div class="text-[11px] text-emerald-400 mt-1 flex items-center gap-1"><i data-lucide="check" class="w-3.5 h-3.5"></i> Отклик отправлен: ${new Date(statuses[v.id].applied_at).toLocaleString('ru-RU', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}</div>` : '';
+        const isAutoApplied = Boolean(statuses[v.id]?.auto_applied || v.auto_applied);
+        const isApplied = (vStatus === 'applied');
+        const appliedDate = statuses[v.id]?.applied_at || (isApplied ? statuses[v.id]?.updated_at : null);
+
+        let autoBadge = '';
+        if (isAutoApplied) {
+          autoBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm"><i data-lucide="bot" class="w-3.5 h-3.5 text-emerald-400 pointer-events-none"></i> Авто-отклик</span>`;
+        } else if (isApplied) {
+          autoBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-400 pointer-events-none"></i> Откликнут</span>`;
+        }
+
+        const appliedAtHtml = appliedDate ? `<div class="text-[11px] text-emerald-400 mt-1.5 flex items-center gap-1.5 font-medium"><i data-lucide="${isAutoApplied ? 'bot' : 'check'}" class="w-3.5 h-3.5 text-emerald-400 pointer-events-none"></i> ${isAutoApplied ? 'Авто-отклик отправлен на HH' : 'Отклик отправлен'}: ${new Date(appliedDate).toLocaleString('ru-RU', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}</div>` : '';
 
         const stackChips = (v.stack && v.stack.length > 0)
           ? `<div class="flex items-center gap-1.5 flex-wrap my-3">
@@ -899,6 +940,7 @@
                 ${roleBadge}
                 ${sourceBadge}
                 ${remoteBadge}
+                ${autoBadge}
               </div>
               ${scoreBadge}
             </div>
@@ -912,7 +954,7 @@
             </div>
             ${locationHtml}
             ${salaryHtml}
-            ${appliedAt}
+            ${appliedAtHtml}
 
             <!-- Tech Stack Chips (Прямо на карточке) -->
             ${stackChips}
@@ -949,7 +991,7 @@
             <!-- Left: Cover letter -->
             <button onclick="openCoverLetter('${v.id}')" title="Сформировать отклик" class="px-3 py-2 rounded-xl bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition shadow-sm cursor-pointer">
               <i data-lucide="file-edit" class="w-4 h-4 pointer-events-none"></i>
-              <span class="pointer-events-none">Отклик</span>
+              <span class="pointer-events-none">${isApplied ? 'Письмо' : 'Отклик'}</span>
             </button>
 
             <!-- Status switches -->
@@ -1060,11 +1102,22 @@
       const autoBtn = document.getElementById('modalAutoApplyBtn');
       const autoBtnText = document.getElementById('modalAutoApplyBtnText');
 
+      const vStatus = statuses[vId]?.status || 'inbox';
+      const isAutoApplied = Boolean(statuses[vId]?.auto_applied || vacancy.auto_applied);
+      const isApplied = (vStatus === 'applied');
+
       if (autoBtn) {
         if (vacancy.source === 'hh') {
           autoBtn.classList.remove('hidden');
-          autoBtn.disabled = false;
-          if (autoBtnText) autoBtnText.textContent = 'Откликнуться на HeadHunter в 1 клик';
+          if (isApplied || isAutoApplied) {
+            autoBtn.disabled = true;
+            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-emerald-700/40 text-emerald-300 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 border border-emerald-500/30 cursor-default';
+            if (autoBtnText) autoBtnText.textContent = isAutoApplied ? '✅ Авто-отклик уже отправлен на HeadHunter' : '✅ Отклик уже отправлен на HeadHunter';
+          } else {
+            autoBtn.disabled = false;
+            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-rose-600/25 transition active:scale-95 cursor-pointer';
+            if (autoBtnText) autoBtnText.textContent = 'Откликнуться на HeadHunter в 1 клик';
+          }
         } else {
           autoBtn.classList.add('hidden');
         }

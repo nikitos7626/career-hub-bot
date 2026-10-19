@@ -34,6 +34,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("career_hub")
 
+# Alias this module to 'bot' in sys.modules so sys.modules.get("bot") works when executed as __main__
+sys.modules["bot"] = sys.modules[__name__]
+
 # =====================================================================
 # Import and Re-export Models (Data, Config, Storage, Vacancy formatters)
 # =====================================================================

@@ -89,6 +89,8 @@ def update_vacancy_status(v_id, status, **kwargs):
         cur["updated_at"] = now_iso
         if "created_at" not in cur:
             cur["created_at"] = now_iso
+        if status == "applied":
+            cur.setdefault("applied_at", now_iso)
         for k, v in kwargs.items():
             if v is not None:
                 cur[k] = v

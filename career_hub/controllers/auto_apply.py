@@ -29,9 +29,18 @@ logger = logging.getLogger("career_hub.auto_apply")
 
 
 def _get_bot_ref(attr_name, fallback):
-    bot_mod = sys.modules.get("bot")
+    bot_mod = sys.modules.get("bot") or sys.modules.get("__main__")
     if bot_mod and hasattr(bot_mod, attr_name):
         return getattr(bot_mod, attr_name)
+    bot_ctrl = sys.modules.get("career_hub.controllers.bot_controller")
+    if bot_ctrl and hasattr(bot_ctrl, attr_name):
+        return getattr(bot_ctrl, attr_name)
+    try:
+        from career_hub.controllers import bot_controller
+        if hasattr(bot_controller, attr_name):
+            return getattr(bot_controller, attr_name)
+    except Exception:
+        pass
     return fallback
 
 
@@ -674,6 +683,7 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                             detail=hh_res.get("detail", "")
                         )
                         if send_msg:
+                            logger.info(f"Отправка Telegram-уведомления об авто-отклике для {v_id} ({clean_title}) в chat_id={chat_id}")
                             msg = (
                                 f"🚀 <b>АВТО-ОТКЛИК ОТПРАВЛЕН! [HeadHunter]</b>\n\n"
                                 f"🔥 <b>Совпадение: {score}/10</b>\n"
@@ -687,7 +697,7 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                                 f"<blockquote>{esc_letter}</blockquote>\n\n"
                                 f"✅ <i>Резюме и письмо успешно зарегистрированы на hh.ru.</i>"
                             )
-                            send_msg(token, chat_id, msg, reply_markup={
+                            tg_res = send_msg(token, chat_id, msg, reply_markup={
                                 "inline_keyboard": [
                                     [
                                         {"text": "🔗 Открыть вакансию на HH", "url": link},
@@ -695,6 +705,10 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                                     ]
                                 ]
                             })
+                            if not tg_res:
+                                logger.error(f"Не удалось доставить уведомление об авто-отклике {v_id} в Telegram")
+                        else:
+                            logger.warning(f"send_message недоступен, уведомление для {v_id} не отправлено")
                         return True, True
 
                     elif hh_res.get("status") == "already_applied":
@@ -706,6 +720,7 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                             detail=hh_res.get("detail", "Отклик уже зарегистрирован на hh.ru")
                         )
                         if send_msg:
+                            logger.info(f"Отправка Telegram-уведомления о существующем отклике для {v_id} в chat_id={chat_id}")
                             msg = (
                                 f"🚀 <b>ОТКЛИК УЖЕ ЗАРЕГИСТРИРОВАН НА HeadHunter!</b>\n\n"
                                 f"🔥 <b>Совпадение: {score}/10</b>\n"
@@ -728,6 +743,8 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                                     ]
                                 ]
                             })
+                        else:
+                            logger.warning(f"send_message недоступен, уведомление для {v_id} не отправлено")
                         return True, True
 
                     elif hh_res.get("status") == "test_required":
