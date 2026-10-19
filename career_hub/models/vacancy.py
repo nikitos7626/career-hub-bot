@@ -191,21 +191,26 @@ def normalize_vacancy_for_api(v: dict, statuses: dict) -> dict | None:
     if v.get("source") == "trudvsem" or v_id.startswith("trud_"):
         return None
 
-    # Жесткий отсев middle, senior, нерелевантного стека и черного списка
-    import sys
-    bot_mod = sys.modules.get("bot")
-    if bot_mod and hasattr(bot_mod, "quick_prefilter_reject"):
-        rej_fn = bot_mod.quick_prefilter_reject
-    else:
-        from career_hub.controllers.scrapers.base import quick_prefilter_reject as rej_fn
+    # Если пользователь вручную сохранил, откликнулся или ведёт интервью по вакансии — не отсекаем её
+    user_status = (statuses.get(v_id) or {}).get("status")
+    is_user_managed = user_status in ["saved", "applied", "interview"]
 
-    if rej_fn(title, desc, company):
-        return None
+    if not is_user_managed:
+        # Жесткий отсев middle, senior, нерелевантного стека и черного списка
+        import sys
+        bot_mod = sys.modules.get("bot")
+        if bot_mod and hasattr(bot_mod, "quick_prefilter_reject"):
+            rej_fn = bot_mod.quick_prefilter_reject
+        else:
+            from career_hub.controllers.scrapers.base import quick_prefilter_reject as rej_fn
 
-    analysis = v.get("analysis")
-    if analysis and isinstance(analysis, dict):
-        if analysis.get("suitable") is False or analysis.get("match_score", 0) < 5:
+        if rej_fn(title, desc, company):
             return None
+
+        analysis = v.get("analysis")
+        if analysis and isinstance(analysis, dict):
+            if analysis.get("suitable") is False or analysis.get("match_score", 0) < 5:
+                return None
 
     source = v.get("source")
     source_name = v.get("source_name")
