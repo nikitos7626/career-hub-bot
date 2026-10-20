@@ -376,6 +376,52 @@
           </details>
         </div>
 
+        <!-- Habr Career Cookie Section -->
+        <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-white">🍪 Куки Хабр Карьеры (career.habr.com)</span>
+              <span id="habrCookieStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700">Загрузка...</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Вставьте строку cookies с <a href="https://career.habr.com" target="_blank" class="text-sky-400 underline hover:text-sky-300">career.habr.com</a>, чтобы бот мог автоматически откликаться на вакансии Хабр Карьеры в 1 клик.
+          </p>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">Строка Cookie (Header / DevTools):</label>
+            <textarea id="habrCookieInput" rows="3" placeholder="Вставьте сюда строку cookie (например: remember_user_token=...; _career_session=...)" class="w-full px-3 py-2 text-xs font-mono rounded-xl bg-slate-900 border border-slate-700/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition resize-none"></textarea>
+            <div id="habrCookieCheckResult" class="text-xs mt-1.5 hidden"></div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="testHabrCookie()" id="testHabrCookieBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-sky-400"></i> Проверить куки Хабра
+            </button>
+            <button onclick="saveHabrCookieOnly()" id="saveHabrCookieBtn" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить куки
+            </button>
+          </div>
+
+          <!-- Spoiler / instruction -->
+          <details class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 cursor-pointer">
+            <summary class="hover:text-sky-300 select-none font-semibold text-slate-300">💡 Как скопировать куки Хабр Карьеры?</summary>
+            <div class="space-y-2 mt-2 text-slate-400 pl-1 leading-relaxed">
+              <p>Для авторизованных откликов необходимы сессионные куки со страницы <b>career.habr.com</b>:</p>
+              <div class="p-2 rounded-xl bg-slate-900 border border-slate-800 font-mono text-[11px] space-y-1 text-slate-300">
+                <div>🔑 <b class="text-sky-400">_career_session</b> или <b class="text-sky-400">_habr_career_session</b> — сессия пользователя</div>
+                <div>🛡️ <b class="text-sky-400">remember_user_token</b> — токен постоянного входа</div>
+              </div>
+              <p class="font-semibold text-slate-300 pt-1">Инструкция:</p>
+              <ol class="list-decimal list-inside space-y-1.5 pl-1">
+                <li>Откройте <code class="text-sky-300 font-mono">career.habr.com</code> (войдите в свой аккаунт).</li>
+                <li>Нажмите <kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px]">F12</kbd> → вкладка <b>Сеть (Network)</b> → обновите страницу (<kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px]">F5</kbd>).</li>
+                <li>Кликните на первый запрос к <code class="text-sky-300 font-mono">career.habr.com</code> → Заголовки (Headers) → найдите строку <b>Cookie</b> → правый клик → <b>Copy value</b>. Вставьте сюда.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+
         <!-- Auto Apply Options -->
         <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
           <h4 class="text-sm font-semibold text-white">⚙️ Параметры автоотклика</h4>
@@ -1224,7 +1270,7 @@
       const isApplied = (vStatus === 'applied');
 
       if (autoBtn) {
-        if (vacancy.source === 'hh') {
+        if (vacancy.source === 'hh' || String(vacancy.id).startsWith('hh_')) {
           autoBtn.classList.remove('hidden');
           if (isApplied || isAutoApplied) {
             autoBtn.disabled = true;
@@ -1234,6 +1280,17 @@
             autoBtn.disabled = false;
             autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-rose-600/25 transition active:scale-95 cursor-pointer';
             if (autoBtnText) autoBtnText.textContent = 'Откликнуться на HeadHunter в 1 клик';
+          }
+        } else if (vacancy.source === 'habr' || vacancy.source === 'habrcareer' || String(vacancy.id).startsWith('habr_')) {
+          autoBtn.classList.remove('hidden');
+          if (isApplied || isAutoApplied) {
+            autoBtn.disabled = true;
+            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-emerald-700/40 text-emerald-300 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 border border-emerald-500/30 cursor-default';
+            if (autoBtnText) autoBtnText.textContent = isAutoApplied ? '✅ Авто-отклик уже отправлен на Хабр Карьере' : '✅ Отклик уже отправлен на Хабр Карьере';
+          } else {
+            autoBtn.disabled = false;
+            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-cyan-600/25 transition active:scale-95 cursor-pointer';
+            if (autoBtnText) autoBtnText.textContent = 'Откликнуться на Хабр Карьере в 1 клик';
           }
         } else {
           autoBtn.classList.add('hidden');
@@ -1295,6 +1352,8 @@
       const btn = document.getElementById('modalAutoApplyBtn');
       const btnText = document.getElementById('modalAutoApplyBtnText');
       const letter = document.getElementById('letterContentBox').value.trim();
+      const isHabr = (activeVacancyForModal.source === 'habr' || activeVacancyForModal.source === 'habrcareer');
+      const defaultBtnText = isHabr ? 'Откликнуться на Хабр Карьере в 1 клик' : 'Откликнуться на HeadHunter в 1 клик';
       
       btn.disabled = true;
       btnText.textContent = 'Отправка отклика...';
@@ -1312,7 +1371,7 @@
           setTimeout(() => {
             closeCoverLetterModal();
             btn.disabled = false;
-            btnText.textContent = 'Откликнуться на HeadHunter в 1 клик';
+            btnText.textContent = defaultBtnText;
           }, 1200);
         } else {
           alert('Ошибка отклика: ' + (data.error || 'Не удалось отправить'));
@@ -1364,6 +1423,13 @@
       badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700';
       document.getElementById('cookieCheckResult').classList.add('hidden');
 
+      const habrBadge = document.getElementById('habrCookieStatusBadge');
+      if (habrBadge) {
+        habrBadge.textContent = 'Загрузка...';
+        habrBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700';
+      }
+      document.getElementById('habrCookieCheckResult')?.classList.add('hidden');
+
       try {
         const res = await fetch('./api/settings', { headers: authHeaders() });
         const data = await res.json();
@@ -1381,6 +1447,29 @@
             badge.textContent = '🔴 Не настроена';
             badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30';
           }
+
+          const hhInput = document.getElementById('cookieInput');
+          if (hhInput && data.hh_web_cookie_masked) {
+            hhInput.placeholder = data.hh_web_cookie_masked;
+          }
+
+          if (habrBadge) {
+            if (data.habr_web_cookie_valid) {
+              habrBadge.textContent = `🟢 Активна (${data.habr_user_name || 'Подключено'})`;
+              habrBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+            } else if (data.habr_web_cookie_configured) {
+              habrBadge.textContent = '🟡 Истекла / Требует обновления';
+              habrBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30';
+            } else {
+              habrBadge.textContent = '🔴 Не настроена';
+              habrBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30';
+            }
+          }
+
+          const habrInput = document.getElementById('habrCookieInput');
+          if (habrInput && data.habr_web_cookie_masked) {
+            habrInput.placeholder = data.habr_web_cookie_masked;
+          }
         }
       } catch (e) {
         console.error('Ошибка загрузки настроек:', e);
@@ -1392,6 +1481,7 @@
       haptic();
       document.getElementById('settingsModal').classList.add('hidden');
       document.getElementById('cookieCheckResult').classList.add('hidden');
+      document.getElementById('habrCookieCheckResult')?.classList.add('hidden');
     }
 
     function normalizeCookieInput(raw) {
@@ -1472,23 +1562,128 @@
     }
 
     async function saveCookieOnly() {
+      const btn = document.getElementById('saveCookieBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Сохранение...';
+      }
       await saveAllSettings(true);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранено! ✅';
+        setTimeout(() => {
+          btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить куки';
+          if (window.lucide) lucide.createIcons();
+        }, 1500);
+      }
+    }
+
+    async function testHabrCookie() {
+      haptic();
+      const rawVal = document.getElementById('habrCookieInput')?.value || '';
+      const cookieVal = normalizeCookieInput(rawVal);
+      if (cookieVal && cookieVal !== rawVal.trim()) {
+        const inp = document.getElementById('habrCookieInput');
+        if (inp) inp.value = cookieVal;
+      }
+      const resultDiv = document.getElementById('habrCookieCheckResult');
+      const btn = document.getElementById('testHabrCookieBtn');
+      
+      if (!cookieVal) {
+        if (resultDiv) {
+          resultDiv.textContent = 'Пожалуйста, вставьте строку куки Хабр Карьеры.';
+          resultDiv.className = 'text-xs mt-1.5 text-rose-400';
+          resultDiv.classList.remove('hidden');
+        }
+        return;
+      }
+      
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Проверка...';
+      }
+      
+      try {
+        const res = await fetch('./api/check_habr_cookie', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ cookie: cookieVal })
+        });
+        const data = await res.json();
+        if (data.ok && data.valid) {
+          if (resultDiv) {
+            resultDiv.textContent = `✅ Успешно! Авторизован как: ${data.name}.`;
+            resultDiv.className = 'text-xs mt-1.5 text-emerald-400 font-medium';
+          }
+          const badge = document.getElementById('habrCookieStatusBadge');
+          if (badge) {
+            badge.textContent = `🟢 Активна (${data.name})`;
+            badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+          }
+        } else {
+          if (resultDiv) {
+            resultDiv.textContent = `❌ Ошибка: ${data.error || 'Сессия недействительна'}`;
+            resultDiv.className = 'text-xs mt-1.5 text-rose-400';
+          }
+        }
+      } catch (e) {
+        if (resultDiv) {
+          resultDiv.textContent = 'Ошибка соединения с сервером при проверке куки.';
+          resultDiv.className = 'text-xs mt-1.5 text-rose-400';
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i data-lucide="shield-check" class="w-3.5 h-3.5 text-sky-400"></i> Проверить куки Хабра';
+        }
+        if (resultDiv) resultDiv.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    async function saveHabrCookieOnly() {
+      const btn = document.getElementById('saveHabrCookieBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Сохранение...';
+      }
+      await saveAllSettings(true);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранено! ✅';
+        setTimeout(() => {
+          btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить куки';
+          if (window.lucide) lucide.createIcons();
+        }, 1500);
+      }
     }
 
     async function saveAllSettings(cookieOnly = false) {
       haptic();
-      const rawVal = document.getElementById('cookieInput').value;
+      const rawVal = document.getElementById('cookieInput')?.value || '';
       const cookieVal = normalizeCookieInput(rawVal);
       if (cookieVal && cookieVal !== rawVal.trim()) {
-        document.getElementById('cookieInput').value = cookieVal;
+        const inp = document.getElementById('cookieInput');
+        if (inp) inp.value = cookieVal;
       }
-      const autoApply = document.getElementById('settingAutoApply').checked;
-      const minScore = parseInt(document.getElementById('settingMinScore').value, 10);
+
+      const rawHabrVal = document.getElementById('habrCookieInput')?.value || '';
+      const habrCookieVal = normalizeCookieInput(rawHabrVal);
+      if (habrCookieVal && habrCookieVal !== rawHabrVal.trim()) {
+        const hInp = document.getElementById('habrCookieInput');
+        if (hInp) hInp.value = habrCookieVal;
+      }
+
+      const autoApply = document.getElementById('settingAutoApply')?.checked ?? true;
+      const minScore = parseInt(document.getElementById('settingMinScore')?.value || '7', 10);
       const resultDiv = document.getElementById('cookieCheckResult');
+      const habrResultDiv = document.getElementById('habrCookieCheckResult');
       const btn = document.getElementById('saveAllSettingsBtn');
       
-      btn.disabled = true;
-      btn.textContent = 'Сохранение...';
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Сохранение...';
+      }
 
       const payload = {
         auto_apply_enabled: autoApply,
@@ -1496,6 +1691,9 @@
       };
       if (cookieVal) {
         payload.hh_web_cookie = cookieVal;
+      }
+      if (habrCookieVal) {
+        payload.habr_web_cookie = habrCookieVal;
       }
 
       try {
@@ -1506,33 +1704,52 @@
         });
         const data = await res.json();
         if (data.ok) {
-          if (data.cookie_msg) {
+          if (data.cookie_msg && resultDiv) {
             resultDiv.textContent = data.cookie_valid ? `✅ ${data.cookie_msg}` : `⚠️ ${data.cookie_msg}`;
             resultDiv.className = data.cookie_valid ? 'text-xs mt-1.5 text-emerald-400' : 'text-xs mt-1.5 text-amber-400';
             resultDiv.classList.remove('hidden');
           }
           
           const badge = document.getElementById('cookieStatusBadge');
-          if (data.settings?.hh_web_cookie_valid) {
+          if (badge && data.settings?.hh_web_cookie_valid) {
             badge.textContent = '🟢 Активна';
             badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
           }
+
+          if (data.habr_cookie_msg && habrResultDiv) {
+            habrResultDiv.textContent = data.habr_cookie_valid ? `✅ ${data.habr_cookie_msg}` : `⚠️ ${data.habr_cookie_msg}`;
+            habrResultDiv.className = data.habr_cookie_valid ? 'text-xs mt-1.5 text-emerald-400' : 'text-xs mt-1.5 text-amber-400';
+            habrResultDiv.classList.remove('hidden');
+          }
+
+          const habrBadge = document.getElementById('habrCookieStatusBadge');
+          if (habrBadge && data.settings?.habr_web_cookie_valid) {
+            const hName = data.habr_user_name || data.settings?.habr_user_name;
+            habrBadge.textContent = hName ? `🟢 Активна (${hName})` : '🟢 Активна';
+            habrBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+          }
           
-          btn.textContent = 'Сохранено! ✅';
+          if (btn) btn.textContent = 'Сохранено! ✅';
           setTimeout(() => {
-            btn.disabled = false;
-            btn.textContent = 'Сохранить всё';
+            if (btn) {
+              btn.disabled = false;
+              btn.textContent = 'Сохранить всё';
+            }
             if (!cookieOnly) closeSettingsModal();
           }, 1500);
         } else {
           alert('Ошибка при сохранении: ' + (data.error || 'неизвестная ошибка'));
-          btn.disabled = false;
-          btn.textContent = 'Сохранить всё';
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Сохранить всё';
+          }
         }
       } catch (e) {
         alert('Сетевая ошибка при сохранении настроек.');
-        btn.disabled = false;
-        btn.textContent = 'Сохранить всё';
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Сохранить всё';
+        }
       }
     }
 

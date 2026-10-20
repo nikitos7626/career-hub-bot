@@ -34,6 +34,8 @@ from career_hub.controllers.auto_apply import (
     apply_hh_vacancy_api,
     apply_hh_vacancy_web,
     check_hh_web_cookie,
+    apply_habr_vacancy_web,
+    check_habr_web_cookie,
     auto_select_hh_resume,
 )
 from career_hub.controllers.scrapers import fetch_vacancy_by_id
@@ -319,6 +321,7 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
             cache_fn = _get_bot_ref("load_cache", load_cache)
             stat_fn = _get_bot_ref("load_statuses", load_statuses)
             check_cookie_fn = _get_bot_ref("check_hh_web_cookie", check_hh_web_cookie)
+            check_habr_cookie_fn = _get_bot_ref("check_habr_web_cookie", check_habr_web_cookie)
 
             cfg = cfg_fn()
             cache = cache_fn()
@@ -344,6 +347,25 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                     hh_cookie_valid = True
                     hh_user_name = hh_cookie_info.get("name", "Соискатель")
 
+            habr_cookie = (cfg.get("habr_web_cookie") or "").strip()
+            habr_cookie_masked = ""
+            habr_cookie_valid = False
+            habr_user_name = None
+
+            if habr_cookie:
+                parts = []
+                for p in habr_cookie.split(";"):
+                    p = p.strip()
+                    if "=" in p:
+                        k, val = p.split("=", 1)
+                        if k in ["remember_user_token", "_career_session", "_habr_career_session", "habr_uuid", "hl"]:
+                            parts.append(f"{k}={val[:4]}...{val[-4:] if len(val) > 8 else ''}")
+                habr_cookie_masked = "; ".join(parts) if parts else "Куки сохранены"
+                habr_cookie_info = check_habr_cookie_fn(habr_cookie)
+                if habr_cookie_info and habr_cookie_info.get("ok"):
+                    habr_cookie_valid = True
+                    habr_user_name = habr_cookie_info.get("name", "Соискатель")
+
             resp_data = {
                 "ok": True,
                 "auto_apply_enabled": cfg.get("auto_apply_enabled", True),
@@ -355,6 +377,11 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 "hh_web_cookie_valid": hh_cookie_valid,
                 "hh_web_cookie_masked": hh_cookie_masked,
                 "hh_user_name": hh_user_name,
+                "habr_connected": habr_cookie_valid,
+                "habr_web_cookie_configured": bool(habr_cookie),
+                "habr_web_cookie_valid": habr_cookie_valid,
+                "habr_web_cookie_masked": habr_cookie_masked,
+                "habr_user_name": habr_user_name,
                 "total_vacancies": len(cache),
                 "total_applied": applied_count
             }
@@ -601,7 +628,7 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"ok": False, "error": "Вакансия не найдена"}).encode("utf-8"))
                 return
 
-            raw_id = vacancy.get("raw_id") or (str(v_id).replace("hh_", "") if str(v_id).startswith("hh_") else str(v_id))
+            raw_id = vacancy.get("raw_id") or (str(v_id).replace("habr_", "") if str(v_id).startswith("habr_") else (str(v_id).replace("hh_", "") if str(v_id).startswith("hh_") else str(v_id)))
 
             cfg_fn = _get_bot_ref("load_config", load_config)
             save_cfg_fn = _get_bot_ref("save_config", save_config)
@@ -617,7 +644,7 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
             hh_res_hash = config.get("hh_resume_hash", os.environ.get("HH_RESUME_HASH", "")).strip()
             applied_method = "manual"
 
-            if vacancy.get("source") == "hh":
+            if vacancy.get("source") in ["hh", "headhunter"] or str(v_id).startswith("hh_"):
                 if hh_cookie:
                     apply_web_fn = _get_bot_ref("apply_hh_vacancy_web", apply_hh_vacancy_web)
                     web_res = apply_web_fn(raw_id, hh_res_hash, letter, hh_cookie)
@@ -665,8 +692,42 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                             }, ensure_ascii=False).encode("utf-8"))
                             return
 
+            elif vacancy.get("source") in ["habr", "habrcareer"] or str(v_id).startswith("habr_"):
+                habr_cookie = config.get("habr_web_cookie", "").strip()
+                if habr_cookie:
+                    apply_habr_fn = _get_bot_ref("apply_habr_vacancy_web", apply_habr_vacancy_web)
+                    web_res = apply_habr_fn(raw_id, letter, habr_cookie)
+                    if web_res.get("ok"):
+                        applied_method = "habr_web"
+                    else:
+                        api_error = web_res.get("detail", "Ошибка отклика через веб-сессию Хабр Карьеры")
+                        self.send_response(400)
+                        self._send_cors_headers()
+                        self.send_header("Content-Type", "application/json; charset=utf-8")
+                        self.end_headers()
+                        self.wfile.write(json.dumps({
+                            "ok": False,
+                            "error": api_error,
+                            "status": web_res.get("status"),
+                            "redirect_url": web_res.get("redirect_url"),
+                            "cover_letter": letter
+                        }, ensure_ascii=False).encode("utf-8"))
+                        return
+                else:
+                    self.send_response(400)
+                    self._send_cors_headers()
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "ok": False,
+                        "error": "Не настроены куки веб-сессии Хабр Карьеры в настройках Mini App",
+                        "status": "no_cookie",
+                        "cover_letter": letter
+                    }, ensure_ascii=False).encode("utf-8"))
+                    return
+
             update_fn = _get_bot_ref("update_vacancy_status", update_vacancy_status)
-            updated = update_fn(v_id, "applied", cover_letter=letter, auto_applied=(applied_method in ["hh_api", "hh_web"]), method=applied_method)
+            updated = update_fn(v_id, "applied", cover_letter=letter, auto_applied=(applied_method in ["hh_api", "hh_web", "habr_web"]), method=applied_method)
             self.send_response(200)
             self._send_cors_headers()
             self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -678,11 +739,17 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
             cfg_fn = _get_bot_ref("load_config", load_config)
             save_cfg_fn = _get_bot_ref("save_config", save_config)
             check_cookie_fn = _get_bot_ref("check_hh_web_cookie", check_hh_web_cookie)
+            check_habr_cookie_fn = _get_bot_ref("check_habr_web_cookie", check_habr_web_cookie)
 
             cfg = cfg_fn()
             cookie_updated = False
             cookie_valid = None
             cookie_msg = None
+
+            habr_cookie_updated = False
+            habr_cookie_valid = None
+            habr_cookie_msg = None
+            habr_user_name = None
 
             if "hh_web_cookie" in data:
                 new_cookie = (data.get("hh_web_cookie") or "").strip()
@@ -703,6 +770,25 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                     cookie_updated = True
                     cookie_valid = False
                     cookie_msg = "Куки HeadHunter удалены."
+
+            if "habr_web_cookie" in data:
+                new_habr_cookie = (data.get("habr_web_cookie") or "").strip()
+                if new_habr_cookie:
+                    check_habr_res = check_habr_cookie_fn(new_habr_cookie)
+                    if check_habr_res and check_habr_res.get("ok"):
+                        cfg["habr_web_cookie"] = new_habr_cookie
+                        habr_cookie_updated = True
+                        habr_cookie_valid = True
+                        habr_user_name = check_habr_res.get("name", "Соискатель")
+                        habr_cookie_msg = f"Сессия Хабр Карьеры подтверждена ({habr_user_name})!"
+                    else:
+                        habr_cookie_valid = False
+                        habr_cookie_msg = "Введённые куки не прошли проверку на career.habr.com (возможно, истекли)."
+                else:
+                    cfg["habr_web_cookie"] = ""
+                    habr_cookie_updated = True
+                    habr_cookie_valid = False
+                    habr_cookie_msg = "Куки Хабр Карьеры удалены."
 
             if "auto_apply_enabled" in data:
                 cfg["auto_apply_enabled"] = bool(data["auto_apply_enabled"])
@@ -726,14 +812,55 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "cookie_valid": cookie_valid,
                 "cookie_msg": cookie_msg,
+                "habr_cookie_valid": habr_cookie_valid,
+                "habr_cookie_msg": habr_cookie_msg,
+                "habr_user_name": habr_user_name,
                 "settings": {
                     "auto_apply_enabled": cfg.get("auto_apply_enabled", True),
                     "auto_apply_min_score": cfg.get("auto_apply_min_score", 7),
                     "notify_min_score": cfg.get("notify_min_score", 9),
                     "hh_web_cookie_configured": bool((cfg.get("hh_web_cookie") or "").strip()),
-                    "hh_web_cookie_valid": bool(cookie_valid if cookie_valid is not None else cfg.get("hh_web_cookie"))
+                    "hh_web_cookie_valid": bool(cookie_valid if cookie_valid is not None else cfg.get("hh_web_cookie")),
+                    "habr_web_cookie_configured": bool((cfg.get("habr_web_cookie") or "").strip()),
+                    "habr_web_cookie_valid": bool(habr_cookie_valid if habr_cookie_valid is not None else cfg.get("habr_web_cookie")),
+                    "habr_user_name": habr_user_name
                 }
             }, ensure_ascii=False).encode("utf-8"))
+            return
+
+        elif path == "/api/check_habr_cookie":
+            test_cookie = (data.get("cookie") or "").strip()
+            if not test_cookie:
+                self.send_response(400)
+                self._send_cors_headers()
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": False, "error": "Пустая строка cookie"}, ensure_ascii=False).encode("utf-8"))
+                return
+
+            check_habr_cookie_fn = _get_bot_ref("check_habr_web_cookie", check_habr_web_cookie)
+            res = check_habr_cookie_fn(test_cookie)
+            if res and res.get("ok"):
+                self.send_response(200)
+                self._send_cors_headers()
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "ok": True,
+                    "valid": True,
+                    "name": res.get("name", "Соискатель"),
+                    "url": res.get("url", "https://career.habr.com/profile")
+                }, ensure_ascii=False).encode("utf-8"))
+            else:
+                self.send_response(200)
+                self._send_cors_headers()
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "ok": True,
+                    "valid": False,
+                    "error": "Сессия не авторизована на career.habr.com (проверьте корректность куки)"
+                }, ensure_ascii=False).encode("utf-8"))
             return
 
         elif path == "/api/check_cookie":

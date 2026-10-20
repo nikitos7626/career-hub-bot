@@ -324,6 +324,236 @@ def apply_hh_vacancy_web(raw_id: str, resume_hash: str, cover_letter: str, cooki
         return {"ok": False, "status": "error", "detail": str(e)}
 
 
+def check_habr_web_cookie(cookie_str: str) -> dict | None:
+    """Проверяет валидность веб-сессии Хабр Карьеры через /profile и возвращает профиль соискателя."""
+    if not cookie_str or not str(cookie_str).strip():
+        return None
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+            "Cookie": cookie_str,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
+        req_mod = _get_bot_ref("requests", requests)
+        resp = req_mod.get("https://career.habr.com/profile", headers=headers, timeout=12, allow_redirects=True)
+
+        if resp.status_code == 200:
+            resp_url = str(getattr(resp, "url", "")).lower()
+            if any(k in resp_url for k in ["sign_in", "login", "account.habr.com"]):
+                return None
+            if resp_url.rstrip("/") == "https://career.habr.com":
+                return None
+
+            html_text = resp.text
+            lower_text = html_text.lower()
+
+            # Check for authentic user session indicators
+            has_auth_indicator = any(k in html_text for k in [
+                "sign_out", "/users/sign_out", "user-info", "profile-header",
+                "profile-name", "data-user-name", "header-user"
+            ])
+            if not has_auth_indicator and ("sign_in" in lower_text or "войти" in lower_text or "авториз" in lower_text):
+                return None
+
+            c_name = "Соискатель"
+            name_m = (
+                re.search(r'class="[^"]*(?:user-info__name|user-info__title|profile-header__title|profile-name)[^"]*">([^<]+)<', html_text)
+                or re.search(r'data-user-name="([^"]+)"', html_text)
+                or re.search(r'<meta\s+property="og:title"\s+content="([^"]+)"', html_text)
+                or re.search(r'<title>([^<—–|/]+)(?:—|–|\||\/).*?Хабр', html_text)
+            )
+            if name_m:
+                cand_name = html.unescape(name_m.group(1).strip())
+                if cand_name and not any(cand_name.lower().startswith(bad) for bad in ["вход", "авторизац", "войти", "sign in", "хабр", "работа в it"]):
+                    c_name = cand_name
+
+            if c_name == "Соискатель" and not has_auth_indicator:
+                return None
+
+            return {
+                "ok": True,
+                "name": c_name,
+                "url": getattr(resp, "url", "https://career.habr.com/profile")
+            }
+        return None
+    except Exception as e:
+        logger.error(f"Ошибка проверки web cookie Habr: {e}")
+        return None
+
+
+def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> dict:
+    """Отправляет отклик на вакансию через веб-сессию Хабр Карьеры (career.habr.com)."""
+    if not raw_id:
+        return {"ok": False, "status": "error", "detail": "Отсутствует ID вакансии"}
+
+    clean_id = str(raw_id).replace("habr_", "").strip()
+    id_m = re.search(r'(?:vacancies/|^)(\d+)', clean_id)
+    if id_m:
+        clean_id = id_m.group(1)
+    else:
+        digits = re.findall(r"\d+", clean_id)
+        if not digits:
+            return {"ok": False, "status": "error", "detail": f"Некорректный ID вакансии: {raw_id}"}
+        clean_id = digits[-1]
+
+    if not cookie_str or not str(cookie_str).strip():
+        return {"ok": False, "status": "no_cookie", "detail": "Не настроены cookies веб-сессии Хабр Карьеры"}
+
+    clean_letter = (cover_letter or "").strip()
+    if len(clean_letter) > 9500:
+        clean_letter = clean_letter[:9450] + "\n..."
+
+    req_mod = _get_bot_ref("requests", requests)
+    get_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+        "Cookie": cookie_str,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+
+    csrf_token = ""
+    resume_id = None
+
+    try:
+        page_resp = req_mod.get(f"https://career.habr.com/vacancies/{clean_id}", headers=get_headers, timeout=15, allow_redirects=True)
+        resp_url = str(getattr(page_resp, "url", "")).lower()
+
+        if page_resp.status_code in [401, 403] or any(k in resp_url for k in ["sign_in", "login", "account.habr.com"]):
+            if "challenge" in page_resp.text.lower() or "turnstile" in page_resp.text.lower() or "captcha" in page_resp.text.lower():
+                return {"ok": False, "status": "captcha_required", "detail": "Требуется решение капчи или проверка Cloudflare на Хабр Карьере"}
+            return {"ok": False, "status": "cookie_expired", "detail": "Сессия Хабр Карьеры устарела или требует повторного входа"}
+
+        if page_resp.status_code == 404:
+            return {"ok": False, "status": "not_found", "detail": "Вакансия не найдена или снята с публикации"}
+
+        if page_resp.status_code == 429:
+            return {"ok": False, "status": "rate_limited", "detail": "Превышен лимит запросов Хабр Карьеры (429)"}
+
+        if page_resp.status_code != 200:
+            return {"ok": False, "status": "error", "detail": f"Ошибка загрузки страницы вакансии (HTTP {page_resp.status_code})"}
+
+        html_text = page_resp.text
+        lower_text = html_text.lower()
+
+        if "challenge" in lower_text and ("cloudflare" in lower_text or "cf-turnstile" in lower_text or "challenge-running" in lower_text):
+            return {"ok": False, "status": "captcha_required", "detail": "Требуется подтверждение браузера Cloudflare на Хабр Карьере"}
+
+        if any(phrase in lower_text for phrase in ["вы уже откликнулись", "отклик отправлен", "already_applied", "already applied"]):
+            return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик"}
+
+        if any(phrase in lower_text for phrase in ["вакансия закрыта", "вакансия в архиве", "закрытая вакансия"]):
+            return {"ok": False, "status": "closed", "detail": "Вакансия закрыта или перенесена в архив"}
+
+        ext_match = (
+            re.search(r'href="([^"]+)"[^>]*class="[^"]*(?:external-button|external_link|btn-external|vacancy-show__external)[^"]*"', html_text, re.IGNORECASE)
+            or re.search(r'class="[^"]*(?:external-button|external_link|btn-external|vacancy-show__external)[^"]*"[^>]*href="([^"]+)"', html_text, re.IGNORECASE)
+            or re.search(r'<a[^>]+href="(https?://[^"]+)"[^>]*>(?:(?!</a>).)*?(?:Откликнуться на сайте|на сайте компании|на сайте работодателя)', html_text, re.IGNORECASE | re.DOTALL)
+        )
+        has_response_form = bool(re.search(r'<form[^>]+action=["\'][^"\']*/responses["\']', html_text, re.IGNORECASE))
+        if ext_match and not has_response_form:
+            return {"ok": False, "status": "direct_required", "detail": "Требуется прямой отклик на сайте работодателя", "redirect_url": ext_match.group(1)}
+
+        csrf_m = (
+            re.search(r'<meta\s+name=["\']csrf-token["\']\s+content=["\']([^"\']+)["\']', html_text, re.IGNORECASE)
+            or re.search(r'<meta\s+content=["\']([^"\']+)["\']\s+name=["\']csrf-token["\']', html_text, re.IGNORECASE)
+            or re.search(r'<input[^>]+name=["\']authenticity_token["\'][^>]+value=["\']([^"\']+)["\']', html_text, re.IGNORECASE)
+            or re.search(r'<input[^>]+value=["\']([^"\']+)["\'][^>]+name=["\']authenticity_token["\']', html_text, re.IGNORECASE)
+        )
+        if csrf_m:
+            csrf_token = csrf_m.group(1).strip()
+
+        if not csrf_token:
+            if ext_match:
+                return {"ok": False, "status": "direct_required", "detail": "Требуется прямой отклик на сайте работодателя", "redirect_url": ext_match.group(1)}
+            if any(k in lower_text for k in ["войти", "авториз", "sign_in"]):
+                return {"ok": False, "status": "cookie_expired", "detail": "Сессия Хабр Карьеры не авторизована (требуется повторный вход)"}
+            return {"ok": False, "status": "error", "detail": "Не удалось обнаружить форму отклика или CSRF-токен на странице вакансии"}
+
+        resume_m = (
+            re.search(r'name=["\']response\[resume_id\]["\'][^>]+value=["\']([^"\']+)["\']', html_text, re.IGNORECASE)
+            or re.search(r'value=["\']([^"\']+)["\'][^>]+name=["\']response\[resume_id\]["\']', html_text, re.IGNORECASE)
+            or re.search(r'id=["\']response_resume_id["\'][^>]+value=["\']([^"\']+)["\']', html_text, re.IGNORECASE)
+            or re.search(r'value=["\']([^"\']+)["\'][^>]+id=["\']response_resume_id["\']', html_text, re.IGNORECASE)
+            or re.search(r'<option[^>]+value=["\']([^"\']+)["\'][^>]*selected', html_text, re.IGNORECASE)
+            or re.search(r'data-resume-id=["\']([^"\']+)["\']', html_text, re.IGNORECASE)
+        )
+        if resume_m:
+            resume_id = resume_m.group(1).strip()
+    except Exception as e:
+        logger.error(f"Исключение при загрузке страницы вакансии Хабра #{clean_id}: {e}")
+        return {"ok": False, "status": "error", "detail": str(e)}
+
+    post_url = f"https://career.habr.com/vacancies/{clean_id}/responses"
+    post_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+        "Cookie": cookie_str,
+        "X-CSRF-Token": csrf_token,
+        "X-Requested-With": "XMLHttpRequest",
+        "Origin": "https://career.habr.com",
+        "Referer": f"https://career.habr.com/vacancies/{clean_id}",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+    }
+
+    payload = {
+        "authenticity_token": csrf_token,
+        "response[message]": clean_letter,
+    }
+    if resume_id:
+        payload["response[resume_id]"] = resume_id
+
+    try:
+        resp = req_mod.post(post_url, headers=post_headers, data=payload, timeout=15, allow_redirects=False)
+
+        if resp.status_code in [200, 201]:
+            lower_resp = resp.text.lower()
+            if any(phrase in lower_resp for phrase in ["already_applied", "вы уже откликнулись"]):
+                return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик"}
+            if "test" in lower_resp and ("required" in lower_resp or "обязательн" in lower_resp):
+                return {"ok": False, "status": "test_required", "detail": "Требуется обязательный тест/анкета работодателя"}
+
+            if "<form" in lower_resp and any(err_word in lower_resp for err_word in ["error", "ошибк", "заполните", "не выбран"]):
+                err_m = re.search(r'class="[^"]*(?:form-error|error|notice|alert)[^"]*">([^<]+)<', resp.text, re.IGNORECASE)
+                err_text = err_m.group(1).strip() if err_m else "Форма отклика отклонена Хабр Карьерой"
+                return {"ok": False, "status": "error", "detail": err_text}
+
+            try:
+                data = resp.json()
+                if isinstance(data, dict):
+                    if data.get("error") or data.get("errors"):
+                        err_desc = str(data.get("errors") or data.get("error"))
+                        if "already" in err_desc.lower():
+                            return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик"}
+                        return {"ok": False, "status": "error", "detail": err_desc}
+                    return {"ok": True, "status": "applied", "detail": "Отклик успешно зарегистрирован через веб-сессию Хабр Карьеры", "data": data}
+            except Exception:
+                pass
+            return {"ok": True, "status": "applied", "detail": "Отклик успешно зарегистрирован через веб-сессию Хабр Карьеры"}
+
+        if resp.status_code in [302, 303]:
+            loc = resp.headers.get("Location", "")
+            if any(k in loc.lower() for k in ["sign_in", "login", "account.habr.com"]):
+                return {"ok": False, "status": "cookie_expired", "detail": "Сессия Хабр Карьеры устарела или требует повторного входа"}
+            if loc.startswith("http") and "career.habr.com" not in loc and "habr.com" not in loc:
+                return {"ok": False, "status": "direct_required", "detail": "Требуется прямой отклик на сайте работодателя", "redirect_url": loc}
+            return {"ok": True, "status": "applied", "detail": "Отклик успешно отправлен на Хабр Карьере", "redirect_url": loc}
+
+        if resp.status_code in [401, 403]:
+            return {"ok": False, "status": "cookie_expired", "detail": "Сессия Хабр Карьеры устарела или отклонена"}
+
+        if resp.status_code == 422:
+            lower_resp = resp.text.lower()
+            if "already" in lower_resp or "уже откликнулись" in lower_resp:
+                return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик"}
+            if "authenticity" in lower_resp or "csrf" in lower_resp:
+                return {"ok": False, "status": "cookie_expired", "detail": "CSRF-токен или сессия Хабр Карьеры недействительна"}
+            return {"ok": False, "status": "error", "detail": f"Ошибка отклика (422): {resp.text[:100]}"}
+
+        return {"ok": False, "status": "error", "detail": f"HTTP {resp.status_code}: {resp.text[:100]}"}
+    except Exception as e:
+        logger.error(f"Исключение при веб-отклике на Хабр #{clean_id}: {e}")
+        return {"ok": False, "status": "error", "detail": str(e)}
+
+
 def delete_hh_negotiation_web(topic_id: str, cookie_str: str, host: str = None) -> dict:
     """Удаляет/скрывает отклик (отказ) из профиля соискателя на HeadHunter."""
     if not topic_id or not cookie_str:
@@ -625,7 +855,7 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
     2. Уведомление в Telegram по порогу notify_min_score.
     """
     v_id = v["id"]
-    raw_id = v.get("raw_id") or (str(v_id).replace("hh_", "") if str(v_id).startswith("hh_") else str(v_id))
+    raw_id = v.get("raw_id") or (str(v_id).replace("habr_", "") if str(v_id).startswith("habr_") else (str(v_id).replace("hh_", "") if str(v_id).startswith("hh_") else str(v_id)))
     score = analysis.get("match_score", 0)
     raw_title = v.get("title", "")
     clean_title = raw_title.replace("Требуется «", "").replace("»", "").strip()
@@ -643,11 +873,13 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
     hh_resume_id = cfg.get("hh_resume_id", "").strip()
     hh_cookie = cfg.get("hh_web_cookie", "").strip()
     hh_resume_hash = cfg.get("hh_resume_hash", os.environ.get("HH_RESUME_HASH", "")).strip()
+    habr_cookie = cfg.get("habr_web_cookie", "").strip()
 
     send_msg = _get_bot_ref("send_message", None)
     gen_letter = _get_bot_ref("generate_cover_letter", generate_cover_letter)
     apply_web = _get_bot_ref("apply_hh_vacancy_web", apply_hh_vacancy_web)
     apply_api = _get_bot_ref("apply_hh_vacancy_api", apply_hh_vacancy_api)
+    apply_habr_web = _get_bot_ref("apply_habr_vacancy_web", apply_habr_vacancy_web)
     sel_res = _get_bot_ref("auto_select_hh_resume", auto_select_hh_resume)
     upd_status = _get_bot_ref("update_vacancy_status", update_vacancy_status)
 
@@ -800,6 +1032,138 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                             msg = (
                                 f"🌐 <b>Внимание: Требуется прямой отклик на сайте работодателя!</b>\n\n"
                                 f"🔥 <b>Совпадение: {score}/10</b> • 🔴 <b>HeadHunter</b>\n"
+                                f"💼 <b>{esc_title}</b>\n"
+                                f"🏢 <b>Компания:</b> {esc_company}\n"
+                            )
+                            if esc_salary:
+                                msg += f"💰 <b>Зарплата:</b> {esc_salary}\n"
+                            msg += (
+                                f"\n📝 <b>Сопроводительное письмо уже подготовлено:</b>\n"
+                                f"<blockquote>{esc_letter}</blockquote>\n\n"
+                                f"💡 <i>Работодатель принимает отклики через свою внешнюю систему подбора персонала.</i>"
+                            )
+                            send_msg(token, chat_id, msg, reply_markup={
+                                "inline_keyboard": [
+                                    [{"text": "🚀 Перейти к подаче заявки", "url": direct_url}],
+                                    [{"text": "✅ Отметить 'Откликнулся'", "callback_data": f"mark_applied_{v_id}"}],
+                                    [{"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}]
+                                ]
+                            })
+                            return False, True
+                        return False, False
+
+            elif (v.get("source") in ["habr", "habrcareer"] or str(v_id).startswith("habr_")) and habr_cookie:
+                habr_res = apply_habr_web(raw_id, cover_letter, habr_cookie)
+                if habr_res:
+                    if habr_res.get("ok"):
+                        upd_status(
+                            v_id, "applied",
+                            cover_letter=cover_letter,
+                            auto_applied=True,
+                            method="habr_web",
+                            detail=habr_res.get("detail", "")
+                        )
+                        if send_msg:
+                            logger.info(f"Отправка Telegram-уведомления об авто-отклике для {v_id} ({clean_title}) в chat_id={chat_id}")
+                            msg = (
+                                f"🚀 <b>АВТО-ОТКЛИК ОТПРАВЛЕН! [Хабр Карьера]</b>\n\n"
+                                f"🔥 <b>Совпадение: {score}/10</b>\n"
+                                f"💼 <b>{esc_title}</b>\n"
+                                f"🏢 <b>Компания:</b> {esc_company}\n"
+                            )
+                            if esc_salary:
+                                msg += f"💰 <b>Зарплата:</b> {esc_salary}\n"
+                            msg += (
+                                f"\n📝 <b>Отправленное сопроводительное письмо:</b>\n"
+                                f"<blockquote>{esc_letter}</blockquote>\n\n"
+                                f"✅ <i>Резюме и письмо успешно зарегистрированы на career.habr.com.</i>"
+                            )
+                            tg_res = send_msg(token, chat_id, msg, reply_markup={
+                                "inline_keyboard": [
+                                    [
+                                        {"text": "🔗 Открыть вакансию на Хабре", "url": link},
+                                        {"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}
+                                    ]
+                                ]
+                            })
+                            if not tg_res:
+                                if not chat_id:
+                                    logger.info(f"Telegram-уведомление об авто-отклике {v_id} отложено: ожидание первого старта диалога от владельца (/start в боте Telegram)")
+                                else:
+                                    logger.error(f"Не удалось доставить уведомление об авто-отклике {v_id} в Telegram")
+                        else:
+                            logger.warning(f"send_message недоступен, уведомление для {v_id} не отправлено")
+                        return True, True
+
+                    elif habr_res.get("status") == "already_applied":
+                        upd_status(
+                            v_id, "applied",
+                            cover_letter=cover_letter,
+                            auto_applied=True,
+                            method="already_applied",
+                            detail=habr_res.get("detail", "Отклик уже зарегистрирован на Хабр Карьере")
+                        )
+                        if send_msg:
+                            logger.info(f"Отправка Telegram-уведомления о существующем отклике для {v_id} в chat_id={chat_id}")
+                            msg = (
+                                f"🚀 <b>ОТКЛИК УЖЕ ЗАРЕГИСТРИРОВАН НА Хабр Карьере!</b>\n\n"
+                                f"🔥 <b>Совпадение: {score}/10</b>\n"
+                                f"💼 <b>{esc_title}</b>\n"
+                                f"🏢 <b>Компания:</b> {esc_company}\n"
+                            )
+                            if esc_salary:
+                                msg += f"💰 <b>Зарплата:</b> {esc_salary}\n"
+                            if esc_letter:
+                                msg += (
+                                    f"\n📝 <b>Сопроводительное письмо:</b>\n"
+                                    f"<blockquote>{esc_letter}</blockquote>\n\n"
+                                )
+                            msg += f"✅ <i>Отклик на эту вакансию уже зарегистрирован в вашем личном кабинете на career.habr.com.</i>"
+                            send_msg(token, chat_id, msg, reply_markup={
+                                "inline_keyboard": [
+                                    [
+                                        {"text": "🔗 Открыть вакансию на Хабре", "url": link},
+                                        {"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}
+                                    ]
+                                ]
+                            })
+                        else:
+                            logger.warning(f"send_message недоступен, уведомление для {v_id} не отправлено")
+                        return True, True
+
+                    elif habr_res.get("status") == "test_required":
+                        upd_status(v_id, "inbox", cover_letter=cover_letter, auto_prepared=True, needs_test=True)
+                        if score >= notify_min_score and send_msg:
+                            msg = (
+                                f"⚠️ <b>Внимание: Требуется анкета / тест работодателя!</b>\n\n"
+                                f"🔥 <b>Совпадение: {score}/10</b> • 🔵 <b>Хабр Карьера</b>\n"
+                                f"💼 <b>{esc_title}</b>\n"
+                                f"🏢 <b>Компания:</b> {esc_company}\n"
+                            )
+                            if esc_salary:
+                                msg += f"💰 <b>Зарплата:</b> {esc_salary}\n"
+                            msg += (
+                                f"\n📝 <b>Сопроводительное письмо уже подготовлено:</b>\n"
+                                f"<blockquote>{esc_letter}</blockquote>\n\n"
+                                f"💡 <i>Работодатель требует ответить на вопросы или пройти опрос на career.habr.com перед подачей.</i>"
+                            )
+                            send_msg(token, chat_id, msg, reply_markup={
+                                "inline_keyboard": [
+                                    [{"text": "🚀 Пройти тест и откликнуться", "url": link}],
+                                    [{"text": "✅ Отметить 'Откликнулся'", "callback_data": f"mark_applied_{v_id}"}],
+                                    [{"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}]
+                                ]
+                            })
+                            return False, True
+                        return False, False
+
+                    elif habr_res.get("status") == "direct_required":
+                        direct_url = habr_res.get("redirect_url") or link
+                        upd_status(v_id, "inbox", cover_letter=cover_letter, auto_prepared=True, direct_url=direct_url)
+                        if score >= notify_min_score and send_msg:
+                            msg = (
+                                f"🌐 <b>Внимание: Требуется прямой отклик на сайте работодателя!</b>\n\n"
+                                f"🔥 <b>Совпадение: {score}/10</b> • 🔵 <b>Хабр Карьера</b>\n"
                                 f"💼 <b>{esc_title}</b>\n"
                                 f"🏢 <b>Компания:</b> {esc_company}\n"
                             )

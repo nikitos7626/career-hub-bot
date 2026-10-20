@@ -38,6 +38,7 @@ DEFAULT_CONFIG = {
     "hh_access_token": "",
     "hh_resume_id": "",
     "hh_web_cookie": "",
+    "habr_web_cookie": "",
     "hh_resume_hash": os.environ.get("HH_RESUME_HASH", ""),
     "resume_quick_tunnel_url": os.environ.get("RESUME_QUICK_TUNNEL_URL", ""),
     "miniapp_url": os.environ.get("MINIAPP_URL", "https://jobs.example.com/"),

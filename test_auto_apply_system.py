@@ -1101,7 +1101,397 @@ class TestSecurityAndHardening(unittest.TestCase):
         self.assertNotIn("shadowkek.space", html)
 
 
+class TestHabrAutoApply(unittest.TestCase):
+    def setUp(self):
+        import shutil
+        self.test_data_dir = os.path.join(os.path.dirname(__file__), "test_data_habr_temp")
+        os.makedirs(self.test_data_dir, exist_ok=True)
+        bot.DATA_DIR = self.test_data_dir
+        bot.STATUSES_FILE = os.path.join(self.test_data_dir, "test_statuses.json")
+        bot.CACHE_FILE = os.path.join(self.test_data_dir, "test_cache.json")
+        bot.CONFIG_FILE = os.path.join(self.test_data_dir, "test_config.json")
+        bot.AUTH_SESSIONS_FILE = os.path.join(self.test_data_dir, "test_sessions.json")
+        
+        from career_hub.models import storage, config
+        storage.DATA_DIR = self.test_data_dir
+        storage.STATUSES_FILE = bot.STATUSES_FILE
+        storage.CACHE_FILE = bot.CACHE_FILE
+        storage.CONFIG_FILE = bot.CONFIG_FILE
+        storage.AUTH_SESSIONS_FILE = bot.AUTH_SESSIONS_FILE
+        config.CONFIG_FILE = bot.CONFIG_FILE
+        config._config_cache = None
+        bot._config_cache = None
+
+    def tearDown(self):
+        import shutil
+        from career_hub.models import config
+        config._config_cache = None
+        bot._config_cache = None
+        if os.path.exists(self.test_data_dir):
+            shutil.rmtree(self.test_data_dir, ignore_errors=True)
+
+    def test_check_habr_web_cookie_empty(self):
+        self.assertIsNone(bot.check_habr_web_cookie(""))
+        self.assertIsNone(bot.check_habr_web_cookie(None))
+        self.assertIsNone(bot.check_habr_web_cookie("   "))
+
+    @patch("bot.requests.get")
+    def test_check_habr_web_cookie_success(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.url = "https://career.habr.com/profile"
+        mock_resp.text = '<html><div class="user-info__name">Александр Иванов</div></html>'
+        mock_get.return_value = mock_resp
+
+        res = bot.check_habr_web_cookie("remember_user_token=xyz123; _career_session=abc456")
+        self.assertIsNotNone(res)
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["name"], "Александр Иванов")
+        self.assertEqual(res["url"], "https://career.habr.com/profile")
+
+    @patch("bot.requests.get")
+    def test_check_habr_web_cookie_invalid_redirect_to_login(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.url = "https://career.habr.com/users/sign_in"
+        mock_resp.text = '<html><form class="new_user" action="/users/sign_in"></form></html>'
+        mock_get.return_value = mock_resp
+
+        res = bot.check_habr_web_cookie("expired_cookie=123")
+        self.assertIsNone(res)
+
+    @patch("bot.requests.get")
+    def test_check_habr_web_cookie_expired_or_error(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_resp.url = "https://career.habr.com/profile"
+        mock_get.return_value = mock_resp
+
+        res = bot.check_habr_web_cookie("invalid_token=456")
+        self.assertIsNone(res)
+
+    def test_apply_habr_vacancy_web_empty_input(self):
+        res1 = bot.apply_habr_vacancy_web("", "Письмо", "cookie=1")
+        self.assertFalse(res1["ok"])
+        self.assertEqual(res1["status"], "error")
+
+        res2 = bot.apply_habr_vacancy_web("habr_10001", "Письмо", "")
+        self.assertFalse(res2["ok"])
+        self.assertEqual(res2["status"], "no_cookie")
+
+    @patch("bot.requests.post")
+    @patch("bot.requests.get")
+    def test_apply_habr_vacancy_web_success(self, mock_get, mock_post):
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 200
+        mock_get_resp.url = "https://career.habr.com/vacancies/1000123"
+        mock_get_resp.text = """
+        <html>
+            <meta name="csrf-token" content="test_csrf_token_xyz">
+            <form action="/vacancies/1000123/responses" method="post">
+                <input type="hidden" name="authenticity_token" value="test_csrf_token_xyz">
+                <input type="hidden" name="response[resume_id]" value="556677">
+            </form>
+        </html>
+        """
+        mock_get.return_value = mock_get_resp
+
+        mock_post_resp = MagicMock()
+        mock_post_resp.status_code = 200
+        mock_post_resp.text = '{"status":"ok"}'
+        mock_post_resp.json.return_value = {"status": "ok"}
+        mock_post.return_value = mock_post_resp
+
+        res = bot.apply_habr_vacancy_web("1000123", "Здравствуйте! Вот моё письмо.", "remember_user_token=xyz; _career_session=abc")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "applied")
+
+        # Verify POST call details
+        mock_post.assert_called_once()
+        post_url = mock_post.call_args[0][0]
+        self.assertEqual(post_url, "https://career.habr.com/vacancies/1000123/responses")
+        post_headers = mock_post.call_args[1]["headers"]
+        self.assertEqual(post_headers["X-CSRF-Token"], "test_csrf_token_xyz")
+        post_data = mock_post.call_args[1]["data"]
+        self.assertEqual(post_data["authenticity_token"], "test_csrf_token_xyz")
+        self.assertEqual(post_data["response[message]"], "Здравствуйте! Вот моё письмо.")
+        self.assertEqual(post_data["response[resume_id]"], "556677")
+
+    @patch("bot.requests.get")
+    def test_apply_habr_vacancy_web_already_applied_on_page(self, mock_get):
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 200
+        mock_get_resp.url = "https://career.habr.com/vacancies/1000123"
+        mock_get_resp.text = '<html><div class="vacancy-response__status">Вы уже откликнулись на эту вакансию</div></html>'
+        mock_get.return_value = mock_get_resp
+
+        res = bot.apply_habr_vacancy_web("1000123", "Письмо", "cookie=1")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "already_applied")
+
+    @patch("bot.requests.post")
+    @patch("bot.requests.get")
+    def test_apply_habr_vacancy_web_redirect_302(self, mock_get, mock_post):
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 200
+        mock_get_resp.url = "https://career.habr.com/vacancies/1000123"
+        mock_get_resp.text = '<meta name="csrf-token" content="csrf123">'
+        mock_get.return_value = mock_get_resp
+
+        mock_post_resp = MagicMock()
+        mock_post_resp.status_code = 302
+        mock_post_resp.headers = {"Location": "https://career.habr.com/vacancies/1000123"}
+        mock_post.return_value = mock_post_resp
+
+        res = bot.apply_habr_vacancy_web("1000123", "Письмо", "cookie=1")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "applied")
+        self.assertEqual(res["redirect_url"], "https://career.habr.com/vacancies/1000123")
+
+    @patch("bot.requests.get")
+    def test_apply_habr_vacancy_web_direct_required(self, mock_get):
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 200
+        mock_get_resp.url = "https://career.habr.com/vacancies/1000123"
+        mock_get_resp.text = '<html><a href="https://external.ats/apply/123" class="vacancy-show__external-button">Откликнуться на сайте</a></html>'
+        mock_get.return_value = mock_get_resp
+
+        res = bot.apply_habr_vacancy_web("1000123", "Письмо", "cookie=1")
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["status"], "direct_required")
+        self.assertEqual(res["redirect_url"], "https://external.ats/apply/123")
+
+    @patch("bot.requests.get")
+    def test_check_habr_web_cookie_unauthorized_guest_home_redirect(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.url = "https://career.habr.com/"
+        mock_resp.text = '<html><head><title>Хабр Карьера — Работа в IT</title></head><body><header><a href="https://account.habr.com/login">Войти</a></header></body></html>'
+        mock_get.return_value = mock_resp
+
+        res = bot.check_habr_web_cookie("invalid_token=123")
+        self.assertIsNone(res)
+
+    @patch("bot.requests.post")
+    @patch("bot.requests.get")
+    def test_apply_habr_vacancy_web_resume_value_attribute_order(self, mock_get, mock_post):
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 200
+        mock_get_resp.url = "https://career.habr.com/vacancies/1000123"
+        mock_get_resp.text = '<html><meta name="csrf-token" content="csrf_xyz"><input value="889900" type="radio" checked name="response[resume_id]"></html>'
+        mock_get.return_value = mock_get_resp
+
+        mock_post_resp = MagicMock()
+        mock_post_resp.status_code = 200
+        mock_post_resp.json.return_value = {"status": "ok"}
+        mock_post.return_value = mock_post_resp
+
+        res = bot.apply_habr_vacancy_web("1000123", "Письмо", "cookie=1")
+        self.assertTrue(res["ok"])
+        post_data = mock_post.call_args[1]["data"]
+        self.assertEqual(post_data.get("response[resume_id]"), "889900")
+
+    @patch("bot.requests.post")
+    @patch("bot.requests.get")
+    def test_apply_habr_vacancy_web_get_server_error_500(self, mock_get, mock_post):
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 500
+        mock_get_resp.url = "https://career.habr.com/vacancies/1000123"
+        mock_get_resp.text = "Internal Server Error"
+        mock_get.return_value = mock_get_resp
+
+        res = bot.apply_habr_vacancy_web("1000123", "Письмо", "cookie=1")
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["status"], "error")
+        self.assertFalse(mock_post.called)
+
+    @patch("bot.requests.post")
+    @patch("bot.requests.get")
+    def test_apply_habr_vacancy_web_missing_csrf_token(self, mock_get, mock_post):
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 200
+        mock_get_resp.url = "https://career.habr.com/vacancies/1000123"
+        mock_get_resp.text = "<html><body><div>Some content without CSRF</div></body></html>"
+        mock_get.return_value = mock_get_resp
+
+        res = bot.apply_habr_vacancy_web("1000123", "Письмо", "cookie=1")
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["status"], "error")
+        self.assertFalse(mock_post.called)
+
+    @patch("bot.requests.get")
+    def test_apply_habr_vacancy_web_direct_required_nested_tags(self, mock_get):
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 200
+        mock_get_resp.url = "https://career.habr.com/vacancies/1000123"
+        mock_get_resp.text = '<html><body><a href="https://careers.company.com/apply/123" class="btn"><span>Откликнуться на сайте компании</span></a></body></html>'
+        mock_get.return_value = mock_get_resp
+
+        res = bot.apply_habr_vacancy_web("1000123", "Письмо", "cookie=1")
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["status"], "direct_required")
+        self.assertEqual(res.get("redirect_url"), "https://careers.company.com/apply/123")
+
+    @patch("bot.requests.post")
+    @patch("bot.requests.get")
+    def test_apply_habr_vacancy_web_post_re_rendered_form_error(self, mock_get, mock_post):
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 200
+        mock_get_resp.url = "https://career.habr.com/vacancies/1000123"
+        mock_get_resp.text = '<meta name="csrf-token" content="csrf123">'
+        mock_get.return_value = mock_get_resp
+
+        mock_post_resp = MagicMock()
+        mock_post_resp.status_code = 200
+        mock_post_resp.text = '<html><form action="/vacancies/1000123/responses"><div class="form-error">Необходимо прикрепить резюме</div></form></html>'
+        mock_post_resp.json.side_effect = Exception("Not JSON")
+        mock_post.return_value = mock_post_resp
+
+        res = bot.apply_habr_vacancy_web("1000123", "Письмо", "cookie=1")
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["status"], "error")
+
+    @patch("bot.apply_habr_vacancy_web")
+    @patch("bot.generate_cover_letter")
+    @patch("bot.send_message")
+    def test_process_vacancy_habr_auto_apply_flow(self, mock_send, mock_letter, mock_apply_habr):
+        mock_letter.return_value = "Здравствуйте! Мой стек Java 21, Spring Boot..."
+        mock_apply_habr.return_value = {"ok": True, "status": "applied", "detail": "Success"}
+
+        v = {
+            "id": "habr_987654",
+            "raw_id": "987654",
+            "source": "habr",
+            "source_name": "Хабр Карьера",
+            "title": "Junior Java Developer",
+            "company": "Habr Tech",
+            "link": "https://career.habr.com/vacancies/987654"
+        }
+        analysis = {"match_score": 9, "suitable": True, "verdict": "Идеально", "role": "java"}
+        cfg = {
+            "notify_min_score": 9,
+            "auto_apply_enabled": True,
+            "auto_apply_min_score": 8,
+            "habr_web_cookie": "remember_user_token=xyz; _career_session=abc"
+        }
+
+        auto_app, notified = bot.process_vacancy_auto_apply_and_notify(
+            v, analysis, cfg, "tg_token", 12345, "gkey", "gmodel"
+        )
+        self.assertTrue(auto_app)
+        self.assertTrue(notified)
+        self.assertTrue(mock_apply_habr.called)
+        self.assertTrue(mock_send.called)
+
+        sent_text = mock_send.call_args[0][2]
+        self.assertIn("АВТО-ОТКЛИК ОТПРАВЛЕН! [Хабр Карьера]", sent_text)
+        self.assertIn("Habr Tech", sent_text)
+        self.assertIn("career.habr.com", sent_text)
+
+        statuses = bot.load_statuses()
+        self.assertIn("habr_987654", statuses)
+        self.assertEqual(statuses["habr_987654"]["status"], "applied")
+        self.assertEqual(statuses["habr_987654"]["method"], "habr_web")
+        self.assertTrue(statuses["habr_987654"]["auto_applied"])
+
+    def test_http_api_auto_apply_and_settings_habr_integration(self):
+        from http.server import ThreadingHTTPServer
+        import threading
+        from career_hub.views.http_server import MiniAppRequestHandler
+        from career_hub.views.auth_view import create_user_session
+
+        test_cfg = bot.load_config()
+        test_cfg["allowed_telegram_id"] = 111222333
+        test_cfg["chat_id"] = 111222333
+        test_cfg["groq_api_key"] = "test_groq_key"
+        test_cfg["habr_web_cookie"] = "remember_user_token=tok123; _career_session=sess123"
+        bot.save_config(test_cfg)
+
+        v_data = {
+            "id": "habr_555777",
+            "raw_id": "555777",
+            "source": "habr",
+            "source_name": "Хабр Карьера",
+            "title": "Junior Java Engineer",
+            "company": "FinTech Corp",
+            "link": "https://career.habr.com/vacancies/555777"
+        }
+        bot.save_to_cache(v_data)
+
+        session_token, _ = create_user_session(111222333)
+        headers = {
+            "Authorization": f"Bearer {session_token}",
+            "Content-Type": "application/json"
+        }
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), MiniAppRequestHandler)
+        port = server.server_address[1]
+        t = threading.Thread(target=server.serve_forever)
+        t.daemon = True
+        t.start()
+
+        try:
+            base_url = f"http://127.0.0.1:{port}"
+
+            # A. Test GET /api/settings
+            with patch("bot.check_habr_web_cookie", return_value={"ok": True, "name": "Иван Тестов"}):
+                res_settings = requests.get(f"{base_url}/api/settings", headers=headers, timeout=5)
+                self.assertEqual(res_settings.status_code, 200)
+                data_settings = res_settings.json()
+                self.assertTrue(data_settings["ok"])
+                self.assertTrue(data_settings["habr_connected"])
+                self.assertTrue(data_settings["habr_web_cookie_configured"])
+                self.assertTrue(data_settings["habr_web_cookie_valid"])
+                self.assertEqual(data_settings["habr_user_name"], "Иван Тестов")
+
+            # B. Test POST /api/check_habr_cookie
+            with patch("bot.check_habr_web_cookie", return_value={"ok": True, "name": "Иван Тестов"}):
+                res_check = requests.post(f"{base_url}/api/check_habr_cookie", json={"cookie": "test_cookie"}, headers=headers, timeout=5)
+                self.assertEqual(res_check.status_code, 200)
+                data_check = res_check.json()
+                self.assertTrue(data_check["ok"])
+                self.assertTrue(data_check["valid"])
+                self.assertEqual(data_check["name"], "Иван Тестов")
+
+            # C. Test POST /api/auto_apply with Habr vacancy
+            with patch("bot.apply_habr_vacancy_web", return_value={"ok": True, "status": "applied", "detail": "Success"}):
+                res_apply = requests.post(
+                    f"{base_url}/api/auto_apply",
+                    json={"id": "habr_555777", "cover_letter": "Письмо на отклик"},
+                    headers=headers,
+                    timeout=5
+                )
+                self.assertEqual(res_apply.status_code, 200)
+                data_apply = res_apply.json()
+                self.assertTrue(data_apply["ok"])
+                self.assertEqual(data_apply["applied_method"], "habr_web")
+
+            statuses = bot.load_statuses()
+            self.assertIn("habr_555777", statuses)
+            self.assertEqual(statuses["habr_555777"]["status"], "applied")
+            self.assertEqual(statuses["habr_555777"]["method"], "habr_web")
+
+            # D. Test POST /api/settings update habr_web_cookie
+            with patch("bot.check_habr_web_cookie", return_value={"ok": True, "name": "Новое Имя"}):
+                res_save_settings = requests.post(
+                    f"{base_url}/api/settings",
+                    json={"habr_web_cookie": "new_habr_cookie=123"},
+                    headers=headers,
+                    timeout=5
+                )
+                self.assertEqual(res_save_settings.status_code, 200)
+                data_saved = res_save_settings.json()
+                self.assertTrue(data_saved["ok"])
+                self.assertTrue(data_saved["habr_cookie_valid"])
+                self.assertIn("Новое Имя", data_saved["habr_cookie_msg"])
+
+        finally:
+            server.shutdown()
+            server.server_close()
+
+
 if __name__ == "__main__":
     unittest.main()
+
 
 
