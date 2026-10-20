@@ -1490,8 +1490,320 @@ class TestHabrAutoApply(unittest.TestCase):
             server.server_close()
 
 
+class TestMultiPlatformAutoApply(unittest.TestCase):
+    def setUp(self):
+        self.test_data_dir = os.path.join(os.path.dirname(__file__), "test_data_multi_platform_temp")
+        os.makedirs(self.test_data_dir, exist_ok=True)
+        bot.DATA_DIR = self.test_data_dir
+        bot.STATUSES_FILE = os.path.join(self.test_data_dir, "test_statuses.json")
+        bot.CACHE_FILE = os.path.join(self.test_data_dir, "test_cache.json")
+        bot.CONFIG_FILE = os.path.join(self.test_data_dir, "test_config.json")
+        bot._config_cache = None
+
+    def tearDown(self):
+        import shutil
+        if os.path.exists(self.test_data_dir):
+            shutil.rmtree(self.test_data_dir, ignore_errors=True)
+
+    # =====================================================================
+    # 1. Telegram Platform Tests
+    # =====================================================================
+    def test_extract_telegram_contacts(self):
+        text = """
+        Junior Java Developer в FinTech компанию.
+        Требования: Spring Boot, PostgreSQL, Docker.
+        Контакты для связи: @recruiter_alice или пишите на hr@fintech.ru
+        Резюме также можно отправить: https://t.me/tech_lead_bob
+        Канал: @it_jobs_channel
+        """
+        contacts = bot.extract_telegram_contacts(text, ext_links=["https://t.me/tech_lead_bob"], channel_name="it_jobs_channel")
+        self.assertEqual(contacts["email"], "hr@fintech.ru")
+        self.assertIn(contacts["username"], ["tech_lead_bob", "recruiter_alice"])
+        self.assertNotEqual(contacts["username"], "it_jobs_channel")
+
+    def test_build_telegram_recruiter_link(self):
+        letter = "Здравствуйте! Меня зовут Никита, откликаюсь на вакансию."
+        res = bot.build_telegram_recruiter_link("hr_manager", letter)
+        self.assertTrue(res["tg_url"].startswith("tg://resolve?domain=hr_manager&text="))
+        self.assertTrue(res["web_url"].startswith("https://t.me/hr_manager?text="))
+        self.assertIn("%D0%9D%D0%B8%D0%BA%D0%B8%D1%82%D0%B0", res["tg_url"])
+
+    def test_apply_telegram_vacancy(self):
+        res = bot.apply_telegram_vacancy("tg_channel_123", "Письмо", "recruiter_job")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "applied")
+        self.assertEqual(res["method"], "telegram_direct")
+        self.assertIn("tg://resolve?domain=recruiter_job", res["direct_link"])
+
+    # =====================================================================
+    # 2. SuperJob Platform Tests
+    # =====================================================================
+    @patch("bot.requests.get")
+    def test_check_superjob_session_valid(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "objects": [{"id": 101, "name": "Никита Фролов", "profession": "Java Developer"}]
+        }
+        mock_get.return_value = mock_resp
+
+        res = bot.check_superjob_session(token="valid_sj_token")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["user_name"], "Никита Фролов")
+        self.assertEqual(len(res["resumes"]), 1)
+
+    @patch("bot.requests.get")
+    def test_check_superjob_session_invalid(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_get.return_value = mock_resp
+
+        res = bot.check_superjob_session(token="expired_sj_token")
+        self.assertFalse(res["ok"])
+        self.assertIn("недействительны", res["detail"])
+
+    @patch("bot.requests.post")
+    def test_apply_superjob_vacancy_success(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 201
+        mock_resp.text = json.dumps({"success": True})
+        mock_post.return_value = mock_resp
+
+        res = bot.apply_superjob_vacancy("12345", "Текст письма", token="test_token")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "applied")
+        self.assertEqual(res["method"], "superjob_api")
+
+    @patch("bot.requests.post")
+    def test_apply_superjob_vacancy_already_applied(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = json.dumps({"error": "You have already applied for this vacancy"})
+        mock_post.return_value = mock_resp
+
+        res = bot.apply_superjob_vacancy("12345", "Текст письма", token="test_token")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "already_applied")
+
+    # =====================================================================
+    # 3. GetMatch Platform Tests
+    # =====================================================================
+    @patch("bot.requests.get")
+    def test_check_getmatch_session_valid(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"id": 99, "name": "Никита Разработчик"}
+        mock_get.return_value = mock_resp
+
+        res = bot.check_getmatch_session(token_or_cookie="gm_token_abc")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["user_name"], "Никита Разработчик")
+
+    @patch("bot.requests.post")
+    def test_apply_getmatch_vacancy_success(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = json.dumps({"status": "applied"})
+        mock_post.return_value = mock_resp
+
+        res = bot.apply_getmatch_vacancy("987", "Письмо соискателя", token_or_cookie="gm_token")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "applied")
+        self.assertEqual(res["method"], "getmatch_api")
+
+    @patch("bot.requests.post")
+    def test_apply_getmatch_vacancy_already_applied(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 409
+        mock_resp.text = json.dumps({"error": "Application already exists"})
+        mock_post.return_value = mock_resp
+
+        res = bot.apply_getmatch_vacancy("987", "Письмо", token_or_cookie="gm_token")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "already_applied")
+
+    # =====================================================================
+    # 4. Direct Email (SMTP) Tests
+    # =====================================================================
+    @patch("bot.smtplib.SMTP_SSL")
+    def test_check_smtp_connection_success(self, mock_smtp):
+        mock_instance = MagicMock()
+        mock_smtp.return_value = mock_instance
+
+        res = bot.check_smtp_connection("smtp.yandex.ru", 465, "test@yandex.ru", "app_pass", use_ssl=True)
+        self.assertTrue(res["ok"])
+        mock_instance.login.assert_called_with("test@yandex.ru", "app_pass")
+        mock_instance.quit.assert_called_once()
+
+    @patch("bot.smtplib.SMTP_SSL")
+    def test_send_email_application_success(self, mock_smtp):
+        mock_instance = MagicMock()
+        mock_smtp.return_value = mock_instance
+
+        smtp_cfg = {
+            "smtp_host": "smtp.yandex.ru",
+            "smtp_port": 465,
+            "smtp_user": "candidate@yandex.ru",
+            "smtp_password": "app_password_secret",
+            "smtp_ssl": True,
+            "smtp_from_name": "Никита Фролов",
+            "contact_email": "candidate@yandex.ru"
+        }
+        res = bot.send_email_application("hr@company.com", "Junior Java Dev", "Здравствуйте, мое резюме...", smtp_config=smtp_cfg)
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "applied")
+        self.assertEqual(res["method"], "email_smtp")
+        mock_instance.sendmail.assert_called_once()
+
+    # =====================================================================
+    # 5. Rabota.ru Platform Tests
+    # =====================================================================
+    @patch("bot.requests.get")
+    def test_check_rabota_session_valid(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"id": 12, "name": "Никита"}
+        mock_get.return_value = mock_resp
+
+        res = bot.check_rabota_session(cookie_or_token="rabota_sess=abc")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["user_name"], "Никита")
+
+    @patch("bot.requests.post")
+    def test_apply_rabota_vacancy_success(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = json.dumps({"response_id": 456})
+        mock_post.return_value = mock_resp
+
+        res = bot.apply_rabota_vacancy("45678", "Письмо", cookie_or_token="rabota_sess=abc")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "applied")
+        self.assertEqual(res["method"], "rabota_api")
+
+    # =====================================================================
+    # 6. TrudVsem (Работа России) Tests
+    # =====================================================================
+    def test_apply_trudvsem_vacancy(self):
+        res = bot.apply_trudvsem_vacancy("tv_888", "Письмо")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "direct_required")
+        self.assertEqual(res["method"], "trudvsem_direct")
+        self.assertIn("trudvsem.ru/vacancy/card/888", res["redirect_url"])
+
+    # =====================================================================
+    # 7. Universal Dispatcher Tests
+    # =====================================================================
+    def test_apply_vacancy_dispatcher_all_sources(self):
+        cfg = {
+            "superjob_token": "sj_test",
+            "getmatch_token": "gm_test",
+            "rabota_cookie": "rabota_test",
+            "smtp_host": "smtp.test.com",
+            "smtp_user": "user@test.com",
+            "smtp_password": "pwd"
+        }
+
+        # Telegram
+        tg_v = {"id": "tg_job_1", "source": "telegram", "recruiter_username": "hr_kate"}
+        res_tg = bot.apply_vacancy_dispatcher(tg_v, "Письмо", config=cfg)
+        self.assertEqual(res_tg["method"], "telegram_direct")
+
+        # SuperJob
+        with patch("bot.apply_superjob_vacancy", return_value={"ok": True, "method": "superjob_api"}):
+            sj_v = {"id": "sj_222", "source": "superjob"}
+            res_sj = bot.apply_vacancy_dispatcher(sj_v, "Письмо", config=cfg)
+            self.assertEqual(res_sj["method"], "superjob_api")
+
+        # GetMatch
+        with patch("bot.apply_getmatch_vacancy", return_value={"ok": True, "method": "getmatch_api"}):
+            gm_v = {"id": "gm_333", "source": "getmatch"}
+            res_gm = bot.apply_vacancy_dispatcher(gm_v, "Письмо", config=cfg)
+            self.assertEqual(res_gm["method"], "getmatch_api")
+
+        # Direct Email
+        with patch("bot.send_email_application", return_value={"ok": True, "method": "email_smtp"}):
+            email_v = {"id": "rem_444", "source": "remotive", "recruiter_email": "jobs@startup.io"}
+            res_email = bot.apply_vacancy_dispatcher(email_v, "Письмо", config=cfg)
+            self.assertEqual(res_email["method"], "email_smtp")
+
+        # Rabota.ru
+        with patch("bot.apply_rabota_vacancy", return_value={"ok": True, "method": "rabota_api"}):
+            rab_v = {"id": "rabota_555", "source": "rabota"}
+            res_rab = bot.apply_vacancy_dispatcher(rab_v, "Письмо", config=cfg)
+            self.assertEqual(res_rab["method"], "rabota_api")
+
+        # TrudVsem
+        tv_v = {"id": "tv_666", "source": "trudvsem"}
+        res_tv = bot.apply_vacancy_dispatcher(tv_v, "Письмо", config=cfg)
+        self.assertEqual(res_tv["method"], "trudvsem_direct")
+
+    # =====================================================================
+    # 8. HTTP Server Multi-Platform Endpoints Integration Tests
+    # =====================================================================
+    def test_http_api_multi_platform_check_endpoints(self):
+        import threading
+        from http.server import ThreadingHTTPServer
+        from career_hub.views.http_server import MiniAppRequestHandler
+        from career_hub.views.auth_view import create_user_session
+
+        session_token, _ = create_user_session(999888777)
+        headers = {
+            "Authorization": f"Bearer {session_token}",
+            "Content-Type": "application/json"
+        }
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), MiniAppRequestHandler)
+        port = server.server_address[1]
+        t = threading.Thread(target=server.serve_forever)
+        t.daemon = True
+        t.start()
+
+        try:
+            base_url = f"http://127.0.0.1:{port}"
+
+            # SuperJob check
+            with patch("bot.check_superjob_session", return_value={"ok": True, "user_name": "Тестер"}):
+                res = requests.post(f"{base_url}/api/check_superjob", json={"token": "tok"}, headers=headers, timeout=5)
+                self.assertEqual(res.status_code, 200)
+                self.assertTrue(res.json()["ok"])
+
+            # GetMatch check
+            with patch("bot.check_getmatch_session", return_value={"ok": True, "user_name": "Тестер GM"}):
+                res = requests.post(f"{base_url}/api/check_getmatch", json={"token": "tok"}, headers=headers, timeout=5)
+                self.assertEqual(res.status_code, 200)
+                self.assertTrue(res.json()["ok"])
+
+            # SMTP check
+            with patch("bot.check_smtp_connection", return_value={"ok": True, "detail": "Connected"}):
+                res = requests.post(f"{base_url}/api/check_smtp", json={"smtp_host": "smtp.test", "smtp_user": "u", "smtp_password": "p"}, headers=headers, timeout=5)
+                self.assertEqual(res.status_code, 200)
+                self.assertTrue(res.json()["ok"])
+
+            # Rabota check
+            with patch("bot.check_rabota_session", return_value={"ok": True, "user_name": "Тестер Rabota"}):
+                res = requests.post(f"{base_url}/api/check_rabota", json={"cookie": "c"}, headers=headers, timeout=5)
+                self.assertEqual(res.status_code, 200)
+                self.assertTrue(res.json()["ok"])
+
+            # Auto apply Telegram vacancy via /api/auto_apply
+            tg_v = {"id": "tg_channel_777", "source": "telegram", "recruiter_username": "hr_kate"}
+            bot.save_to_cache(tg_v)
+            res_apply = requests.post(f"{base_url}/api/auto_apply", json={"id": "tg_channel_777", "cover_letter": "Письмо"}, headers=headers, timeout=5)
+            self.assertEqual(res_apply.status_code, 200)
+            data_apply = res_apply.json()
+            self.assertTrue(data_apply["ok"])
+            self.assertEqual(data_apply["applied_method"], "telegram_direct")
+            self.assertIn("tg://resolve?domain=hr_kate", data_apply["direct_link"])
+
+        finally:
+            server.shutdown()
+            server.server_close()
+
+
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

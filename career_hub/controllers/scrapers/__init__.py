@@ -12,7 +12,10 @@ from career_hub.controllers.scrapers.habr import fetch_habr_vacancies, fetch_hab
 from career_hub.controllers.scrapers.getmatch import fetch_getmatch_vacancies
 from career_hub.controllers.scrapers.superjob import fetch_superjob_vacancies, DEFAULT_SUPERJOB_KEY
 from career_hub.controllers.scrapers.linkedin import fetch_linkedin_vacancies, fetch_linkedin_vacancy_full
-from career_hub.controllers.scrapers.telegram import fetch_tg_channel_vacancies
+from career_hub.controllers.scrapers.telegram import (
+    fetch_tg_channel_vacancies,
+    extract_telegram_contacts,
+)
 from career_hub.controllers.scrapers.rabota import fetch_rabota_vacancies, fetch_rabota_vacancy_full
 from career_hub.controllers.scrapers.trudvsem import fetch_trudvsem_vacancies
 from career_hub.controllers.scrapers.remotive import fetch_remotive_vacancies
@@ -93,6 +96,7 @@ __all__ = [
     "fetch_linkedin_vacancies",
     "fetch_linkedin_vacancy_full",
     "fetch_tg_channel_vacancies",
+    "extract_telegram_contacts",
     "fetch_rabota_vacancies",
     "fetch_rabota_vacancy_full",
     "fetch_trudvsem_vacancies",

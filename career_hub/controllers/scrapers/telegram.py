@@ -13,6 +13,65 @@ from career_hub.controllers.scrapers.base import HTTP_HEADERS
 logger = logging.getLogger("career_hub.scrapers.telegram")
 
 
+def extract_telegram_contacts(text: str, ext_links: list = None, channel_name: str = "") -> dict:
+    """
+    Извлекает юзернейм рекрутера и email для прямого отклика из текста поста или внешних ссылок Telegram.
+    """
+    recruiter_username = ""
+    recruiter_email = ""
+
+    clean_ch = channel_name.replace('@', '').strip().lower() if channel_name else ""
+    system_words = {"joinchat", "c", "s", "addstickers", "share", "iv", "proxy", "socks", "boost", "channel", clean_ch}
+
+    # 1. Поиск Email
+    email_m = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text)
+    if email_m:
+        cand_email = email_m.group(0).strip().lower()
+        if not any(cand_email.endswith(bad) for bad in [".png", ".jpg", ".jpeg", ".svg", ".webp"]):
+            recruiter_email = cand_email
+
+    # 2. Поиск Telegram юзернеймов из ссылок
+    all_links = list(ext_links or [])
+    all_links.extend(re.findall(r'https?://t\.me/([a-zA-Z0-9_]{4,})', text))
+    for l in all_links:
+        m = re.search(r't\.me/([a-zA-Z0-9_]{4,})', l, re.IGNORECASE)
+        if m:
+            uname = m.group(1).strip()
+            uname_low = uname.lower()
+            if uname_low not in system_words and not uname_low.endswith("bot"):
+                recruiter_username = uname
+                break
+
+    # 3. Поиск @username в контекстных строках (отклик, контакты, резюме, пишите, HR, лс)
+    if not recruiter_username:
+        for line in text.split('\n'):
+            line_low = line.lower()
+            if any(k in line_low for k in ["контакт", "отклик", "резюме", "писать", "пишите", "hr", "лс", "связь", "вопрос", "cv", "apply"]):
+                usernames = re.findall(r'(?<!\w)@([a-zA-Z0-9_]{4,32})\b', line)
+                for uname in usernames:
+                    uname_low = uname.lower()
+                    if uname_low not in system_words and not uname_low.endswith("bot"):
+                        recruiter_username = uname
+                        break
+                if recruiter_username:
+                    break
+
+    # 4. Общий fallback по @username в тексте
+    if not recruiter_username:
+        usernames = re.findall(r'(?<!\w)@([a-zA-Z0-9_]{4,32})\b', text)
+        for uname in usernames:
+            uname_low = uname.lower()
+            if uname_low not in system_words and not uname_low.endswith("bot"):
+                recruiter_username = uname
+                break
+
+    return {
+        "username": recruiter_username,
+        "email": recruiter_email
+    }
+
+
+
 def fetch_tg_channel_vacancies(channel_name: str, max_messages: int = 25) -> list:
     """
     Публичный парсер веб-ленты Telegram-каналов без API-ключей и сессий.
@@ -107,6 +166,8 @@ def fetch_tg_channel_vacancies(channel_name: str, max_messages: int = 25) -> lis
             sal_m = re.search(r'(?:Вилка|Зарплата|ЗП|Salary|Payment):\s*([^\n\r•]+)', clean_text, re.I)
             salary = sal_m.group(1).strip() if sal_m else ""
 
+            contacts = extract_telegram_contacts(clean_text, ext_links=clean_ext_links, channel_name=clean_ch)
+
             results.append({
                 "id": f"tg_{clean_ch}_{msg_id}",
                 "raw_id": f"{clean_ch}_{msg_id}",
@@ -117,7 +178,10 @@ def fetch_tg_channel_vacancies(channel_name: str, max_messages: int = 25) -> lis
                 "description": clean_text,
                 "source": "telegram",
                 "source_name": f"TG: @{clean_ch}",
-                "source_emoji": "📢"
+                "source_emoji": "📢",
+                "recruiter_username": contacts.get("username", ""),
+                "recruiter_email": contacts.get("email", ""),
+                "contacts": contacts
             })
     except Exception as e:
         logger.error(f"Ошибка сбора постов из TG канала @{channel_name}: {e}")

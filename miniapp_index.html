@@ -422,6 +422,130 @@
           </details>
         </div>
 
+        <!-- SuperJob Section -->
+        <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-white">💼 SuperJob (superjob.ru)</span>
+              <span id="superjobStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700">Загрузка...</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            API-токен соискателя или веб-сессия для моментального авто-отклика на вакансии SuperJob.
+          </p>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">API токен соискателя или Cookie:</label>
+            <input type="password" id="superjobTokenInput" placeholder="Вставьте токен или куки SuperJob" class="w-full px-3 py-2 text-xs font-mono rounded-xl bg-slate-900 border border-slate-700/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition">
+            <div id="superjobCheckResult" class="text-xs mt-1.5 hidden"></div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="testSuperJob()" id="testSuperJobBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i> Проверить SuperJob
+            </button>
+            <button onclick="saveSuperJobOnly()" id="saveSuperJobBtn" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить
+            </button>
+          </div>
+        </div>
+
+        <!-- GetMatch Section -->
+        <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-white">🟣 GetMatch (getmatch.ru)</span>
+              <span id="getmatchStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700">Загрузка...</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Сессионный токен из Telegram WebApp или браузера GetMatch для авто-подачи заявки.
+          </p>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">Сессионный токен GetMatch:</label>
+            <input type="password" id="getmatchTokenInput" placeholder="Вставьте токен или куки GetMatch" class="w-full px-3 py-2 text-xs font-mono rounded-xl bg-slate-900 border border-slate-700/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 transition">
+            <div id="getmatchCheckResult" class="text-xs mt-1.5 hidden"></div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="testGetMatch()" id="testGetMatchBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-purple-400"></i> Проверить GetMatch
+            </button>
+            <button onclick="saveGetMatchOnly()" id="saveGetMatchBtn" class="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить
+            </button>
+          </div>
+        </div>
+
+        <!-- Direct Email (SMTP) Section -->
+        <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-white">✉️ Почтовый клиент (SMTP / Прямой Email)</span>
+              <span id="smtpStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700">Загрузка...</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Отправка профессионального письма-отклика с резюме прямо на email рекрутера (для вакансий из Remotive, СЕТИ и Telegram).
+          </p>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">SMTP Сервер:</label>
+              <input type="text" id="smtpHostInput" placeholder="smtp.yandex.ru" class="w-full px-2.5 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-slate-200">
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Порт:</label>
+              <input type="number" id="smtpPortInput" placeholder="465" class="w-full px-2.5 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-slate-200">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Логин / Email:</label>
+              <input type="text" id="smtpUserInput" placeholder="user@yandex.ru" class="w-full px-2.5 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-slate-200">
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Пароль приложения:</label>
+              <input type="password" id="smtpPasswordInput" placeholder="Пароль приложения" class="w-full px-2.5 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-slate-200">
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Имя отправителя в письме:</label>
+            <input type="text" id="smtpFromNameInput" placeholder="Никита Фролов" class="w-full px-2.5 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-slate-200">
+          </div>
+          <div id="smtpCheckResult" class="text-xs mt-1 hidden"></div>
+          <div class="flex items-center gap-2 pt-1">
+            <button onclick="testSmtp()" id="testSmtpBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95">
+              <i data-lucide="send" class="w-3.5 h-3.5 text-amber-400"></i> Проверить почту
+            </button>
+            <button onclick="saveSmtpOnly()" id="saveSmtpBtn" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить SMTP
+            </button>
+          </div>
+        </div>
+
+        <!-- Rabota.ru Section -->
+        <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-white">🔴 Работа.ру (rabota.ru)</span>
+              <span id="rabotaStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700">Загрузка...</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Сессионные куки или токен соискателя экосистемы Сбера (Работа.ру).
+          </p>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">Сессионные куки Работа.ру:</label>
+            <input type="password" id="rabotaCookieInput" placeholder="Вставьте куки или токен" class="w-full px-3 py-2 text-xs font-mono rounded-xl bg-slate-900 border border-slate-700/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500 transition">
+            <div id="rabotaCheckResult" class="text-xs mt-1.5 hidden"></div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="testRabota()" id="testRabotaBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-rose-400"></i> Проверить Работа.ру
+            </button>
+            <button onclick="saveRabotaOnly()" id="saveRabotaBtn" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить
+            </button>
+          </div>
+        </div>
+
         <!-- Auto Apply Options -->
         <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
           <h4 class="text-sm font-semibold text-white">⚙️ Параметры автоотклика</h4>
@@ -1109,8 +1233,10 @@
             <h2 class="text-base sm:text-lg font-bold text-white group-hover:text-indigo-400 transition cursor-pointer leading-snug" data-link="${safeLink}" onclick="openLink(this.dataset.link)">
               ${safeTitle}
             </h2>
-            <div class="text-xs sm:text-sm text-slate-400 flex items-center gap-1.5 mt-1">
-              <i data-lucide="building-2" class="w-3.5 h-3.5 text-slate-500"></i> ${safeCompany}
+            <div class="text-xs sm:text-sm text-slate-400 flex items-center gap-1.5 mt-1 flex-wrap">
+              <span class="flex items-center gap-1.5"><i data-lucide="building-2" class="w-3.5 h-3.5 text-slate-500"></i> ${safeCompany}</span>
+              ${v.recruiter_username ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 font-mono flex items-center gap-1 border border-sky-500/30">💬 @${escapeHtml(v.recruiter_username)}</span>` : ''}
+              ${v.recruiter_email ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono flex items-center gap-1 border border-amber-500/30">✉️ ${escapeHtml(v.recruiter_email)}</span>` : ''}
             </div>
             ${locationHtml}
             ${salaryHtml}
@@ -1270,30 +1396,46 @@
       const isApplied = (vStatus === 'applied');
 
       if (autoBtn) {
-        if (vacancy.source === 'hh' || String(vacancy.id).startsWith('hh_')) {
-          autoBtn.classList.remove('hidden');
-          if (isApplied || isAutoApplied) {
-            autoBtn.disabled = true;
-            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-emerald-700/40 text-emerald-300 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 border border-emerald-500/30 cursor-default';
-            if (autoBtnText) autoBtnText.textContent = isAutoApplied ? '✅ Авто-отклик уже отправлен на HeadHunter' : '✅ Отклик уже отправлен на HeadHunter';
-          } else {
-            autoBtn.disabled = false;
+        autoBtn.classList.remove('hidden');
+        if (isApplied || isAutoApplied) {
+          autoBtn.disabled = true;
+          autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-emerald-700/40 text-emerald-300 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 border border-emerald-500/30 cursor-default';
+          if (autoBtnText) autoBtnText.textContent = isAutoApplied ? '✅ Авто-отклик уже отправлен' : '✅ Отклик уже отправлен';
+        } else {
+          autoBtn.disabled = false;
+          const s = (vacancy.source || '').toLowerCase();
+          const vid = String(vacancy.id || '');
+          const recUser = vacancy.recruiter_username || vacancy.contacts?.username;
+          const recEmail = vacancy.recruiter_email || vacancy.contacts?.email;
+
+          if (s === 'hh' || vid.startsWith('hh_')) {
             autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-rose-600/25 transition active:scale-95 cursor-pointer';
             if (autoBtnText) autoBtnText.textContent = 'Откликнуться на HeadHunter в 1 клик';
-          }
-        } else if (vacancy.source === 'habr' || vacancy.source === 'habrcareer' || String(vacancy.id).startsWith('habr_')) {
-          autoBtn.classList.remove('hidden');
-          if (isApplied || isAutoApplied) {
-            autoBtn.disabled = true;
-            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-emerald-700/40 text-emerald-300 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 border border-emerald-500/30 cursor-default';
-            if (autoBtnText) autoBtnText.textContent = isAutoApplied ? '✅ Авто-отклик уже отправлен на Хабр Карьере' : '✅ Отклик уже отправлен на Хабр Карьере';
-          } else {
-            autoBtn.disabled = false;
+          } else if (s === 'habr' || s === 'habrcareer' || vid.startsWith('habr_')) {
             autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-cyan-600/25 transition active:scale-95 cursor-pointer';
             if (autoBtnText) autoBtnText.textContent = 'Откликнуться на Хабр Карьере в 1 клик';
+          } else if (s === 'telegram' || vid.startsWith('tg_')) {
+            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 transition active:scale-95 cursor-pointer';
+            if (autoBtnText) autoBtnText.textContent = recUser ? `💬 Написать @${recUser} в Telegram` : '💬 Написать рекрутеру в Telegram';
+          } else if (s === 'superjob' || vid.startsWith('sj_')) {
+            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition active:scale-95 cursor-pointer';
+            if (autoBtnText) autoBtnText.textContent = 'Откликнуться на SuperJob в 1 клик';
+          } else if (s === 'getmatch' || vid.startsWith('gm_')) {
+            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-600/25 transition active:scale-95 cursor-pointer';
+            if (autoBtnText) autoBtnText.textContent = 'Откликнуться на GetMatch в 1 клик';
+          } else if (s === 'rabota' || vid.startsWith('rabota_')) {
+            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-600/25 transition active:scale-95 cursor-pointer';
+            if (autoBtnText) autoBtnText.textContent = 'Откликнуться на Работа.ру в 1 клик';
+          } else if (s === 'trudvsem' || vid.startsWith('tv_')) {
+            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-700 to-slate-700 hover:from-blue-600 hover:to-slate-600 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-700/25 transition active:scale-95 cursor-pointer';
+            if (autoBtnText) autoBtnText.textContent = '🌐 Открыть на TrudVsem (Госуслуги)';
+          } else if (recEmail) {
+            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-600/25 transition active:scale-95 cursor-pointer';
+            if (autoBtnText) autoBtnText.textContent = `✉️ Отправить отклик на Email (${recEmail})`;
+          } else {
+            autoBtn.className = 'w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition active:scale-95 cursor-pointer';
+            if (autoBtnText) autoBtnText.textContent = 'Откликнуться в 1 клик';
           }
-        } else {
-          autoBtn.classList.add('hidden');
         }
       }
 
@@ -1368,6 +1510,18 @@
         if (data.ok) {
           btnText.textContent = 'Отклик отправлен! ✅';
           changeStatus(activeVacancyForModal.id, 'applied', letter);
+
+          // Прямой переход к диалогу рекрутера в Telegram
+          if (data.direct_link) {
+            if (window.Telegram?.WebApp?.openTelegramLink) {
+              window.Telegram.WebApp.openTelegramLink(data.direct_link);
+            } else {
+              window.open(data.direct_link, '_blank');
+            }
+          } else if (data.redirect_url) {
+            openLink(data.redirect_url);
+          }
+
           setTimeout(() => {
             closeCoverLetterModal();
             btn.disabled = false;
@@ -1470,6 +1624,78 @@
           if (habrInput && data.habr_web_cookie_masked) {
             habrInput.placeholder = data.habr_web_cookie_masked;
           }
+
+          // SuperJob
+          const sjBadge = document.getElementById('superjobStatusBadge');
+          if (sjBadge) {
+            if (data.superjob_connected) {
+              sjBadge.textContent = '🟢 Подключен';
+              sjBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+            } else {
+              sjBadge.textContent = '🔴 Не настроен';
+              sjBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30';
+            }
+          }
+          const sjInput = document.getElementById('superjobTokenInput');
+          if (sjInput && data.superjob_masked) {
+            sjInput.placeholder = data.superjob_masked;
+          }
+
+          // GetMatch
+          const gmBadge = document.getElementById('getmatchStatusBadge');
+          if (gmBadge) {
+            if (data.getmatch_connected) {
+              gmBadge.textContent = '🟢 Подключен';
+              gmBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+            } else {
+              gmBadge.textContent = '🔴 Не настроен';
+              gmBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30';
+            }
+          }
+          const gmInput = document.getElementById('getmatchTokenInput');
+          if (gmInput && data.getmatch_masked) {
+            gmInput.placeholder = data.getmatch_masked;
+          }
+
+          // SMTP
+          const smtpBadge = document.getElementById('smtpStatusBadge');
+          if (smtpBadge) {
+            if (data.smtp_connected) {
+              smtpBadge.textContent = '🟢 Настроен';
+              smtpBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+            } else {
+              smtpBadge.textContent = '🔴 Не настроен';
+              smtpBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30';
+            }
+          }
+          if (document.getElementById('smtpHostInput') && data.smtp_host) {
+            document.getElementById('smtpHostInput').value = data.smtp_host;
+          }
+          if (document.getElementById('smtpPortInput') && data.smtp_port) {
+            document.getElementById('smtpPortInput').value = data.smtp_port;
+          }
+          if (document.getElementById('smtpUserInput') && data.smtp_user) {
+            document.getElementById('smtpUserInput').value = data.smtp_user;
+          }
+          if (document.getElementById('smtpFromNameInput') && data.smtp_from_name) {
+            document.getElementById('smtpFromNameInput').value = data.smtp_from_name;
+          }
+
+          // Rabota.ru
+          const rabotaBadge = document.getElementById('rabotaStatusBadge');
+          if (rabotaBadge) {
+            if (data.rabota_connected) {
+              rabotaBadge.textContent = '🟢 Подключен';
+              rabotaBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+            } else {
+              rabotaBadge.textContent = '🔴 Не настроен';
+              rabotaBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30';
+            }
+          }
+          const rabotaInput = document.getElementById('rabotaCookieInput');
+          if (rabotaInput && data.rabota_masked) {
+            rabotaInput.placeholder = data.rabota_masked;
+          }
         }
       } catch (e) {
         console.error('Ошибка загрузки настроек:', e);
@@ -1482,6 +1708,10 @@
       document.getElementById('settingsModal').classList.add('hidden');
       document.getElementById('cookieCheckResult').classList.add('hidden');
       document.getElementById('habrCookieCheckResult')?.classList.add('hidden');
+      document.getElementById('superjobCheckResult')?.classList.add('hidden');
+      document.getElementById('getmatchCheckResult')?.classList.add('hidden');
+      document.getElementById('smtpCheckResult')?.classList.add('hidden');
+      document.getElementById('rabotaCheckResult')?.classList.add('hidden');
     }
 
     function normalizeCookieInput(raw) {
@@ -1696,6 +1926,24 @@
         payload.habr_web_cookie = habrCookieVal;
       }
 
+      const sjVal = document.getElementById('superjobTokenInput')?.value.trim();
+      const gmVal = document.getElementById('getmatchTokenInput')?.value.trim();
+      const rabotaVal = document.getElementById('rabotaCookieInput')?.value.trim();
+      const smtpHost = document.getElementById('smtpHostInput')?.value.trim();
+      const smtpPort = document.getElementById('smtpPortInput')?.value.trim();
+      const smtpUser = document.getElementById('smtpUserInput')?.value.trim();
+      const smtpPass = document.getElementById('smtpPasswordInput')?.value.trim();
+      const smtpFromName = document.getElementById('smtpFromNameInput')?.value.trim();
+
+      if (sjVal) payload.superjob_token = sjVal;
+      if (gmVal) payload.getmatch_token = gmVal;
+      if (rabotaVal) payload.rabota_cookie = rabotaVal;
+      if (smtpHost) payload.smtp_host = smtpHost;
+      if (smtpPort) payload.smtp_port = parseInt(smtpPort, 10) || 465;
+      if (smtpUser) payload.smtp_user = smtpUser;
+      if (smtpPass) payload.smtp_password = smtpPass;
+      if (smtpFromName) payload.smtp_from_name = smtpFromName;
+
       try {
         const res = await fetch('./api/settings', {
           method: 'POST',
@@ -1750,6 +1998,298 @@
           btn.disabled = false;
           btn.textContent = 'Сохранить всё';
         }
+      }
+    }
+
+    async function testSuperJob() {
+      haptic();
+      const val = document.getElementById('superjobTokenInput')?.value.trim();
+      const resDiv = document.getElementById('superjobCheckResult');
+      const btn = document.getElementById('testSuperJobBtn');
+      if (!val) {
+        if (resDiv) {
+          resDiv.textContent = 'Пожалуйста, введите токен или куки SuperJob.';
+          resDiv.className = 'text-xs mt-1.5 text-rose-400';
+          resDiv.classList.remove('hidden');
+        }
+        return;
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Проверка...';
+      }
+      try {
+        const res = await fetch('./api/check_superjob', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ token: val, cookie: val })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (resDiv) {
+            resDiv.textContent = `✅ Успешно! ${data.detail || ''} (${data.user_name || ''})`;
+            resDiv.className = 'text-xs mt-1.5 text-emerald-400 font-medium';
+          }
+          const badge = document.getElementById('superjobStatusBadge');
+          if (badge) {
+            badge.textContent = `🟢 Активен (${data.user_name || 'ОК'})`;
+            badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+          }
+        } else {
+          if (resDiv) {
+            resDiv.textContent = `❌ Ошибка: ${data.detail || 'Не удалось авторизоваться'}`;
+            resDiv.className = 'text-xs mt-1.5 text-rose-400';
+          }
+        }
+      } catch (e) {
+        if (resDiv) {
+          resDiv.textContent = 'Ошибка соединения при проверке SuperJob.';
+          resDiv.className = 'text-xs mt-1.5 text-rose-400';
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i> Проверить SuperJob';
+        }
+        if (resDiv) resDiv.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    async function saveSuperJobOnly() {
+      const btn = document.getElementById('saveSuperJobBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Сохранение...';
+      }
+      await saveAllSettings(true);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранено! ✅';
+        setTimeout(() => {
+          btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить';
+          if (window.lucide) lucide.createIcons();
+        }, 1500);
+      }
+    }
+
+    async function testGetMatch() {
+      haptic();
+      const val = document.getElementById('getmatchTokenInput')?.value.trim();
+      const resDiv = document.getElementById('getmatchCheckResult');
+      const btn = document.getElementById('testGetMatchBtn');
+      if (!val) {
+        if (resDiv) {
+          resDiv.textContent = 'Пожалуйста, введите токен GetMatch.';
+          resDiv.className = 'text-xs mt-1.5 text-rose-400';
+          resDiv.classList.remove('hidden');
+        }
+        return;
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Проверка...';
+      }
+      try {
+        const res = await fetch('./api/check_getmatch', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ token: val })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (resDiv) {
+            resDiv.textContent = `✅ Успешно! ${data.detail || ''} (${data.user_name || ''})`;
+            resDiv.className = 'text-xs mt-1.5 text-emerald-400 font-medium';
+          }
+          const badge = document.getElementById('getmatchStatusBadge');
+          if (badge) {
+            badge.textContent = `🟢 Активен (${data.user_name || 'ОК'})`;
+            badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+          }
+        } else {
+          if (resDiv) {
+            resDiv.textContent = `❌ Ошибка: ${data.detail || 'Не удалось авторизоваться'}`;
+            resDiv.className = 'text-xs mt-1.5 text-rose-400';
+          }
+        }
+      } catch (e) {
+        if (resDiv) {
+          resDiv.textContent = 'Ошибка соединения при проверке GetMatch.';
+          resDiv.className = 'text-xs mt-1.5 text-rose-400';
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i data-lucide="shield-check" class="w-3.5 h-3.5 text-purple-400"></i> Проверить GetMatch';
+        }
+        if (resDiv) resDiv.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    async function saveGetMatchOnly() {
+      const btn = document.getElementById('saveGetMatchBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Сохранение...';
+      }
+      await saveAllSettings(true);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранено! ✅';
+        setTimeout(() => {
+          btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить';
+          if (window.lucide) lucide.createIcons();
+        }, 1500);
+      }
+    }
+
+    async function testSmtp() {
+      haptic();
+      const host = document.getElementById('smtpHostInput')?.value.trim();
+      const port = document.getElementById('smtpPortInput')?.value.trim() || '465';
+      const user = document.getElementById('smtpUserInput')?.value.trim();
+      const pwd = document.getElementById('smtpPasswordInput')?.value.trim();
+      const resDiv = document.getElementById('smtpCheckResult');
+      const btn = document.getElementById('testSmtpBtn');
+
+      if (!host || !user || !pwd) {
+        if (resDiv) {
+          resDiv.textContent = 'Пожалуйста, заполните хост, логин и пароль приложения SMTP.';
+          resDiv.className = 'text-xs mt-1.5 text-rose-400';
+          resDiv.classList.remove('hidden');
+        }
+        return;
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Проверка...';
+      }
+      try {
+        const res = await fetch('./api/check_smtp', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ smtp_host: host, smtp_port: port, smtp_user: user, smtp_password: pwd })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (resDiv) {
+            resDiv.textContent = `✅ Успешно! ${data.detail || 'Подключение установлено'}`;
+            resDiv.className = 'text-xs mt-1.5 text-emerald-400 font-medium';
+          }
+          const badge = document.getElementById('smtpStatusBadge');
+          if (badge) {
+            badge.textContent = '🟢 Настроен';
+            badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+          }
+        } else {
+          if (resDiv) {
+            resDiv.textContent = `❌ Ошибка: ${data.detail || 'Не удалось подключиться к SMTP'}`;
+            resDiv.className = 'text-xs mt-1.5 text-rose-400';
+          }
+        }
+      } catch (e) {
+        if (resDiv) {
+          resDiv.textContent = 'Ошибка соединения при проверке SMTP.';
+          resDiv.className = 'text-xs mt-1.5 text-rose-400';
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i data-lucide="send" class="w-3.5 h-3.5 text-amber-400"></i> Проверить почту';
+        }
+        if (resDiv) resDiv.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    async function saveSmtpOnly() {
+      const btn = document.getElementById('saveSmtpBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Сохранение...';
+      }
+      await saveAllSettings(true);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранено! ✅';
+        setTimeout(() => {
+          btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить SMTP';
+          if (window.lucide) lucide.createIcons();
+        }, 1500);
+      }
+    }
+
+    async function testRabota() {
+      haptic();
+      const val = document.getElementById('rabotaCookieInput')?.value.trim();
+      const resDiv = document.getElementById('rabotaCheckResult');
+      const btn = document.getElementById('testRabotaBtn');
+      if (!val) {
+        if (resDiv) {
+          resDiv.textContent = 'Пожалуйста, введите куки Работа.ру.';
+          resDiv.className = 'text-xs mt-1.5 text-rose-400';
+          resDiv.classList.remove('hidden');
+        }
+        return;
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Проверка...';
+      }
+      try {
+        const res = await fetch('./api/check_rabota', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ cookie: val })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (resDiv) {
+            resDiv.textContent = `✅ Успешно! ${data.detail || ''} (${data.user_name || ''})`;
+            resDiv.className = 'text-xs mt-1.5 text-emerald-400 font-medium';
+          }
+          const badge = document.getElementById('rabotaStatusBadge');
+          if (badge) {
+            badge.textContent = `🟢 Активен (${data.user_name || 'ОК'})`;
+            badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+          }
+        } else {
+          if (resDiv) {
+            resDiv.textContent = `❌ Ошибка: ${data.detail || 'Не удалось авторизоваться'}`;
+            resDiv.className = 'text-xs mt-1.5 text-rose-400';
+          }
+        }
+      } catch (e) {
+        if (resDiv) {
+          resDiv.textContent = 'Ошибка соединения при проверке Работа.ру.';
+          resDiv.className = 'text-xs mt-1.5 text-rose-400';
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i data-lucide="shield-check" class="w-3.5 h-3.5 text-rose-400"></i> Проверить Работа.ру';
+        }
+        if (resDiv) resDiv.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    async function saveRabotaOnly() {
+      const btn = document.getElementById('saveRabotaBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Сохранение...';
+      }
+      await saveAllSettings(true);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранено! ✅';
+        setTimeout(() => {
+          btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Сохранить';
+          if (window.lucide) lucide.createIcons();
+        }, 1500);
       }
     }
 

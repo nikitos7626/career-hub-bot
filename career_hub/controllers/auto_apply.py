@@ -9,9 +9,15 @@ import json
 import time
 import html
 import logging
+import urllib.parse
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 import requests
-from career_hub.models.config import load_config, save_config
+from career_hub.models.config import load_config, save_config, safe_int
 from career_hub.models.storage import (
+    DATA_DIR,
     load_statuses,
     save_statuses,
     update_vacancy_status,
@@ -552,6 +558,536 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
     except Exception as e:
         logger.error(f"Исключение при веб-отклике на Хабр #{clean_id}: {e}")
         return {"ok": False, "status": "error", "detail": str(e)}
+
+
+# =====================================================================
+# Phase 2: Telegram Channels Recruiter Direct Messaging Adapter
+# =====================================================================
+
+def build_telegram_recruiter_link(username: str, cover_letter: str) -> dict:
+    """
+    Генерирует прямые ссылки (Deep Link и Web Link) для открытия диалога с рекрутером
+    в Telegram с предварительно заполненным текстом сопроводительного письма.
+    """
+    clean_user = (username or "").replace("@", "").strip()
+    if not clean_user:
+        return {"tg_url": "", "web_url": ""}
+    encoded_text = urllib.parse.quote(str(cover_letter or "").strip())
+    return {
+        "tg_url": f"tg://resolve?domain={clean_user}&text={encoded_text}",
+        "web_url": f"https://t.me/{clean_user}?text={encoded_text}",
+        "username": clean_user
+    }
+
+
+def apply_telegram_vacancy(raw_id: str, cover_letter: str, username: str = None) -> dict:
+    """
+    Формирует действие отклика на вакансию из Telegram-канала.
+    Возвращает глубокие ссылки для открытия чата с рекрутером в 1 клик.
+    """
+    clean_id = str(raw_id).replace("tg_", "").strip()
+    links = build_telegram_recruiter_link(username, cover_letter) if username else {"tg_url": "", "web_url": ""}
+    return {
+        "ok": True,
+        "status": "applied",
+        "method": "telegram_direct",
+        "detail": f"Сформирована прямая ссылка для диалога с рекрутером @{username}" if username else "Отмечено как откликнуто",
+        "direct_link": links.get("tg_url", ""),
+        "web_link": links.get("web_url", ""),
+        "recruiter_username": username or ""
+    }
+
+
+# =====================================================================
+# Phase 3: SuperJob (superjob.ru) API & Session Adapter
+# =====================================================================
+
+def check_superjob_session(token: str = "", cookie_str: str = "") -> dict:
+    """
+    Проверяет валидность токена API или веб-сессии соискателя на SuperJob.
+    """
+    token = (token or "").strip()
+    cookie_str = (cookie_str or "").strip()
+    if not token and not cookie_str:
+        return {"ok": False, "detail": "SuperJob токен или куки не указаны"}
+
+    headers = {
+        "User-Agent": "SuperJob-Career-Hub/1.0",
+        "Accept": "application/json"
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    if cookie_str:
+        headers["Cookie"] = cookie_str
+
+    req_mod = _get_bot_ref("requests", requests)
+    try:
+        url = "https://api.superjob.ru/2.0/user_cvs/"
+        resp = req_mod.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            cvs = data.get("objects", []) if isinstance(data, dict) else []
+            user_name = "Соискатель SuperJob"
+            if cvs and isinstance(cvs[0], dict):
+                user_name = cvs[0].get("name") or cvs[0].get("profession") or user_name
+            return {
+                "ok": True,
+                "detail": "Сессия SuperJob активна",
+                "user_name": user_name,
+                "resumes": cvs
+            }
+        elif resp.status_code in [401, 403]:
+            return {"ok": False, "detail": "Токен или куки SuperJob недействительны или истекли"}
+        return {"ok": False, "detail": f"Ответ SuperJob HTTP {resp.status_code}"}
+    except Exception as e:
+        logger.error(f"Ошибка проверки сессии SuperJob: {e}")
+        return {"ok": False, "detail": str(e)}
+
+
+def apply_superjob_vacancy(raw_id: str, cover_letter: str, token: str = "", cookie_str: str = "", resume_id: str = None) -> dict:
+    """
+    Отправляет отклик на вакансию SuperJob через официальный REST API или веб-сессию.
+    """
+    clean_id = str(raw_id).replace("sj_", "").strip()
+    if not clean_id:
+        return {"ok": False, "status": "error", "detail": "Не указан ID вакансии SuperJob"}
+
+    token = (token or "").strip()
+    cookie_str = (cookie_str or "").strip()
+    if not token and not cookie_str:
+        return {"ok": False, "status": "no_credentials", "detail": "Не настроен токен или куки SuperJob"}
+
+    url = f"https://api.superjob.ru/2.0/vacancies/{clean_id}/send/"
+    headers = {
+        "User-Agent": "SuperJob-Career-Hub/1.0",
+        "Accept": "application/json",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    if cookie_str:
+        headers["Cookie"] = cookie_str
+
+    payload = {
+        "comment": (cover_letter or "").strip()
+    }
+    if resume_id:
+        payload["id_cv"] = str(resume_id).strip()
+
+    req_mod = _get_bot_ref("requests", requests)
+    try:
+        resp = req_mod.post(url, headers=headers, json=payload, timeout=12)
+        resp_lower = resp.text.lower()
+        if "already" in resp_lower or "уже откликнулись" in resp_lower:
+            return {"ok": True, "status": "already_applied", "method": "superjob_api", "detail": "Ранее уже был подан отклик на SuperJob"}
+
+        if resp.status_code in [200, 201]:
+            return {"ok": True, "status": "applied", "method": "superjob_api", "detail": "Отклик успешно зарегистрирован на SuperJob"}
+
+        if resp.status_code in [401, 403]:
+            return {"ok": False, "status": "cookie_expired", "detail": "Сессия SuperJob устарела или отклонена"}
+
+        if resp.status_code == 400:
+            return {"ok": False, "status": "error", "detail": f"SuperJob API: {resp.text[:120]}"}
+
+        return {"ok": False, "status": "error", "detail": f"HTTP {resp.status_code}: {resp.text[:120]}"}
+    except Exception as e:
+        logger.error(f"Исключение при отклике на SuperJob #{clean_id}: {e}")
+        return {"ok": False, "status": "error", "detail": str(e)}
+
+
+# =====================================================================
+# Phase 4: GetMatch (getmatch.ru) Session & Apply Adapter
+# =====================================================================
+
+def check_getmatch_session(token_or_cookie: str = "") -> dict:
+    """
+    Проверяет валидность токена авторизации или сессионных куки на GetMatch.
+    """
+    val = (token_or_cookie or "").strip()
+    if not val:
+        return {"ok": False, "detail": "GetMatch токен или куки не указаны"}
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+        "Accept": "application/json"
+    }
+    if "=" in val and ";" in val:
+        headers["Cookie"] = val
+    else:
+        headers["Authorization"] = f"Bearer {val}"
+
+    req_mod = _get_bot_ref("requests", requests)
+    try:
+        url = "https://getmatch.ru/api/v1/profile"
+        resp = req_mod.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            name = "Пользователь GetMatch"
+            if isinstance(data, dict):
+                name = data.get("name") or data.get("first_name") or name
+            return {"ok": True, "detail": "Сессия GetMatch активна", "user_name": name}
+        elif resp.status_code in [401, 403]:
+            return {"ok": False, "detail": "Сессия GetMatch истекла или токен недействителен"}
+        return {"ok": False, "detail": f"Ответ GetMatch HTTP {resp.status_code}"}
+    except Exception as e:
+        logger.error(f"Ошибка проверки сессии GetMatch: {e}")
+        return {"ok": False, "detail": str(e)}
+
+
+def apply_getmatch_vacancy(raw_id: str, cover_letter: str, token_or_cookie: str = "") -> dict:
+    """
+    Отправляет отклик на вакансию GetMatch.
+    """
+    clean_id = str(raw_id).replace("gm_", "").strip()
+    val = (token_or_cookie or "").strip()
+    if not val:
+        return {"ok": False, "status": "no_credentials", "detail": "Не настроен токен GetMatch"}
+
+    url = f"https://getmatch.ru/api/v1/vacancies/{clean_id}/applications"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+    if "=" in val and ";" in val:
+        headers["Cookie"] = val
+    else:
+        headers["Authorization"] = f"Bearer {val}"
+
+    payload = {
+        "cover_letter": (cover_letter or "").strip(),
+        "comment": (cover_letter or "").strip()
+    }
+    req_mod = _get_bot_ref("requests", requests)
+    try:
+        resp = req_mod.post(url, headers=headers, json=payload, timeout=12)
+        if resp.status_code in [200, 201]:
+            return {"ok": True, "status": "applied", "method": "getmatch_api", "detail": "Отклик успешно зарегистрирован на GetMatch"}
+
+        resp_lower = resp.text.lower()
+        if resp.status_code == 409 or "already" in resp_lower or "уже откликнулись" in resp_lower:
+            return {"ok": True, "status": "already_applied", "method": "getmatch_api", "detail": "Ранее уже был подан отклик на GetMatch"}
+
+        if resp.status_code in [401, 403]:
+            return {"ok": False, "status": "cookie_expired", "detail": "Сессия GetMatch устарела или отклонена"}
+
+        return {"ok": False, "status": "error", "detail": f"HTTP {resp.status_code}: {resp.text[:120]}"}
+    except Exception as e:
+        logger.error(f"Исключение при отклике на GetMatch #{clean_id}: {e}")
+        return {"ok": False, "status": "error", "detail": str(e)}
+
+
+# =====================================================================
+# Phase 5: Direct Email Auto-Mailer (SMTP) Adapter
+# =====================================================================
+
+def check_smtp_connection(smtp_host: str, smtp_port: int, smtp_user: str, smtp_password: str, use_ssl: bool = True) -> dict:
+    """
+    Проверяет подключение к SMTP-серверу кандидата (Яндекс.Почта, Mail.ru, Gmail, корпоративный SMTP).
+    """
+    host = (smtp_host or "").strip()
+    user = (smtp_user or "").strip()
+    pwd = (smtp_password or "").strip()
+    port = safe_int(smtp_port, 465)
+
+    if not host or not user or not pwd:
+        return {"ok": False, "detail": "Параметры SMTP (хост, логин, пароль приложения) не заполнены"}
+
+    smtp_mod = _get_bot_ref("smtplib", smtplib)
+    try:
+        if use_ssl or port == 465:
+            server = smtp_mod.SMTP_SSL(host, port, timeout=10)
+        else:
+            server = smtp_mod.SMTP(host, port, timeout=10)
+            server.starttls()
+        server.login(user, pwd)
+        server.quit()
+        return {"ok": True, "detail": f"SMTP-подключение к {host}:{port} успешно установлено"}
+    except Exception as e:
+        logger.error(f"Ошибка проверки SMTP ({host}:{port}): {e}")
+        return {"ok": False, "detail": str(e)}
+
+
+def send_email_application(to_email: str, vacancy_title: str, cover_letter: str, smtp_config: dict = None, resume_path: str = None) -> dict:
+    """
+    Отправляет профессиональный отклик на email рекрутера с прикреплением резюме (PDF).
+    """
+    clean_email = (to_email or "").strip().lower()
+    if not clean_email or "@" not in clean_email:
+        return {"ok": False, "status": "error", "detail": "Некорректный email адрес получателя"}
+
+    cfg = smtp_config or load_config()
+    host = (cfg.get("smtp_host") or "").strip()
+    port = safe_int(cfg.get("smtp_port", 465), 465)
+    user = (cfg.get("smtp_user") or "").strip()
+    pwd = (cfg.get("smtp_password") or "").strip()
+    use_ssl = bool(cfg.get("smtp_ssl", True))
+    from_name = (cfg.get("smtp_from_name") or "Никита Фролов").strip()
+    contact_email = (cfg.get("contact_email") or user).strip()
+
+    if not host or not user or not pwd:
+        return {"ok": False, "status": "no_credentials", "detail": "SMTP параметры не настроены в Mini App"}
+
+    msg = MIMEMultipart("mixed")
+    msg["From"] = f"{from_name} <{user}>"
+    msg["To"] = clean_email
+    msg["Reply-To"] = contact_email
+    msg["Subject"] = f"Отклик на позицию {vacancy_title} — {from_name}"
+
+    alt = MIMEMultipart("alternative")
+    alt.attach(MIMEText(cover_letter, "plain", "utf-8"))
+
+    html_content = f"""<html>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+        <h3 style="color: #4f46e5; margin-top: 0;">Здравствуйте!</h3>
+        <div style="white-space: pre-line; font-size: 15px; color: #334155;">{html.escape(cover_letter)}</div>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 4px;">С уважением,<br><strong>{html.escape(from_name)}</strong></p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 0;">Контакты: {html.escape(contact_email)} | Портфолио: <a href="https://park.example.com" style="color: #4f46e5;">park.example.com</a></p>
+    </div>
+</body>
+</html>"""
+    alt.attach(MIMEText(html_content, "html", "utf-8"))
+    msg.attach(alt)
+
+    pdf_file = resume_path or cfg.get("resume_pdf_path")
+    if not pdf_file:
+        candidate_pdf = os.path.join(DATA_DIR, "resume.pdf")
+        if os.path.exists(candidate_pdf):
+            pdf_file = candidate_pdf
+
+    if pdf_file and os.path.exists(pdf_file):
+        try:
+            with open(pdf_file, "rb") as f:
+                part = MIMEApplication(f.read(), Name=os.path.basename(pdf_file))
+            part["Content-Disposition"] = f'attachment; filename="{os.path.basename(pdf_file)}"'
+            msg.attach(part)
+        except Exception as e:
+            logger.warning(f"Не удалось прикрепить PDF резюме: {e}")
+
+    smtp_mod = _get_bot_ref("smtplib", smtplib)
+    try:
+        if use_ssl or port == 465:
+            server = smtp_mod.SMTP_SSL(host, port, timeout=15)
+        else:
+            server = smtp_mod.SMTP(host, port, timeout=15)
+            server.starttls()
+        server.login(user, pwd)
+        server.sendmail(user, [clean_email], msg.as_string())
+        server.quit()
+        return {"ok": True, "status": "applied", "method": "email_smtp", "detail": f"Отклик успешно отправлен на {clean_email}"}
+    except Exception as e:
+        logger.error(f"Исключение при отправке email на {clean_email}: {e}")
+        return {"ok": False, "status": "error", "detail": str(e)}
+
+
+# =====================================================================
+# Phase 6: Rabota.ru (rabota.ru) Adapter
+# =====================================================================
+
+def check_rabota_session(cookie_or_token: str = "") -> dict:
+    """
+    Проверяет сессию соискателя на Работа.ру.
+    """
+    val = (cookie_or_token or "").strip()
+    if not val:
+        return {"ok": False, "detail": "Сессионные данные Работа.ру не указаны"}
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+        "Accept": "application/json"
+    }
+    if "=" in val and ";" in val:
+        headers["Cookie"] = val
+    else:
+        headers["Authorization"] = f"Bearer {val}"
+
+    req_mod = _get_bot_ref("requests", requests)
+    try:
+        url = "https://api.rabota.ru/v1/users/current"
+        resp = req_mod.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            name = "Соискатель Работа.ру"
+            if isinstance(data, dict):
+                name = data.get("first_name") or data.get("name") or name
+            return {"ok": True, "detail": "Сессия Работа.ру активна", "user_name": name}
+        elif resp.status_code in [401, 403]:
+            return {"ok": False, "detail": "Сессия Работа.ру устарела или отклонена"}
+        return {"ok": False, "detail": f"Ответ Работа.ру HTTP {resp.status_code}"}
+    except Exception as e:
+        logger.error(f"Ошибка проверки сессии Работа.ру: {e}")
+        return {"ok": False, "detail": str(e)}
+
+
+def apply_rabota_vacancy(raw_id: str, cover_letter: str, cookie_or_token: str = "") -> dict:
+    """
+    Отправляет отклик на вакансию Работа.ру.
+    """
+    clean_id = str(raw_id).replace("rabota_", "").strip()
+    val = (cookie_or_token or "").strip()
+    if not val:
+        return {"ok": False, "status": "no_credentials", "detail": "Не настроены куки или токен Работа.ру"}
+
+    url = "https://api.rabota.ru/v1/resumes/responses"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+    if "=" in val and ";" in val:
+        headers["Cookie"] = val
+    else:
+        headers["Authorization"] = f"Bearer {val}"
+
+    payload = {
+        "vacancy_id": clean_id,
+        "letter": (cover_letter or "").strip()
+    }
+    req_mod = _get_bot_ref("requests", requests)
+    try:
+        resp = req_mod.post(url, headers=headers, json=payload, timeout=12)
+        if resp.status_code in [200, 201]:
+            return {"ok": True, "status": "applied", "method": "rabota_api", "detail": "Отклик успешно зарегистрирован на Работа.ру"}
+        resp_lower = resp.text.lower()
+        if "already" in resp_lower or "уже откликнулись" in resp_lower:
+            return {"ok": True, "status": "already_applied", "method": "rabota_api", "detail": "Ранее уже был подан отклик на Работа.ру"}
+        if resp.status_code in [401, 403]:
+            return {"ok": False, "status": "cookie_expired", "detail": "Сессия Работа.ру устарела"}
+        return {"ok": False, "status": "error", "detail": f"HTTP {resp.status_code}: {resp.text[:120]}"}
+    except Exception as e:
+        logger.error(f"Исключение при отклике на Работа.ру #{clean_id}: {e}")
+        return {"ok": False, "status": "error", "detail": str(e)}
+
+
+# =====================================================================
+# Phase 7: TrudVsem (trudvsem.ru / Работа России) Adapter
+# =====================================================================
+
+def apply_trudvsem_vacancy(raw_id: str, cover_letter: str, direct_url: str = None) -> dict:
+    """
+    Формирует отклик для портала 'Работа России' (trudvsem.ru).
+    Портал требует авторизацию через Госуслуги (ЕСИА).
+    Возвращает ссылку прямого перехода с готовым текстом сопроводительного письма.
+    """
+    clean_id = str(raw_id).replace("tv_", "").replace("trudvsem_", "").strip()
+    target_url = direct_url or f"https://trudvsem.ru/vacancy/card/{clean_id}"
+    return {
+        "ok": True,
+        "status": "direct_required",
+        "method": "trudvsem_direct",
+        "detail": "Требуется авторизация через Госуслуги (ЕСИА). Письмо скопировано для отправки на сайте.",
+        "redirect_url": target_url,
+        "cover_letter": cover_letter
+    }
+
+
+# =====================================================================
+# Universal Multi-Platform Auto-Apply Dispatcher
+# =====================================================================
+
+def apply_vacancy_dispatcher(vacancy: dict, cover_letter: str, config: dict = None) -> dict:
+    """
+    Универсальный диспетчер откликов по всем агрегаторам и источникам вакансий.
+    """
+    if not vacancy:
+        return {"ok": False, "status": "error", "detail": "Вакансия не передана"}
+
+    cfg = config or load_config()
+    v_id = str(vacancy.get("id", ""))
+    source = str(vacancy.get("source", "")).lower()
+    raw_id = vacancy.get("raw_id") or v_id
+
+    # 1. Telegram Channels
+    if source == "telegram" or v_id.startswith("tg_"):
+        recruiter_user = vacancy.get("recruiter_username") or (vacancy.get("contacts") or {}).get("username")
+        apply_tg_fn = _get_bot_ref("apply_telegram_vacancy", apply_telegram_vacancy)
+        return apply_tg_fn(raw_id, cover_letter, recruiter_user)
+
+    # 2. HeadHunter
+    if source in ["hh", "headhunter"] or v_id.startswith("hh_"):
+        hh_cookie = (cfg.get("hh_web_cookie") or "").strip()
+        hh_tok = (cfg.get("hh_access_token") or "").strip()
+        hh_res_hash = (cfg.get("hh_resume_hash") or "").strip()
+        clean_id = raw_id.replace("hh_", "")
+        if hh_cookie:
+            apply_hh_web_fn = _get_bot_ref("apply_hh_vacancy_web", apply_hh_vacancy_web)
+            res = apply_hh_web_fn(clean_id, hh_res_hash, cover_letter, hh_cookie)
+            if res.get("ok"):
+                res["method"] = "hh_web"
+            return res
+        elif hh_tok:
+            hh_res_id = (cfg.get("hh_resume_id") or "").strip()
+            if not hh_res_id:
+                sel_res_fn = _get_bot_ref("auto_select_hh_resume", auto_select_hh_resume)
+                res_obj = sel_res_fn(hh_tok)
+                if res_obj:
+                    hh_res_id = res_obj.get("id", "")
+            if hh_res_id:
+                apply_hh_api_fn = _get_bot_ref("apply_hh_vacancy_api", apply_hh_vacancy_api)
+                res = apply_hh_api_fn(clean_id, hh_res_id, cover_letter, hh_tok)
+                if res.get("ok"):
+                    res["method"] = "hh_api"
+                return res
+        return {"ok": False, "status": "no_credentials", "detail": "Не настроены куки или API-токен HeadHunter"}
+
+    # 3. Хабр Карьера
+    if source in ["habr", "habrcareer"] or v_id.startswith("habr_"):
+        habr_cookie = (cfg.get("habr_web_cookie") or "").strip()
+        clean_id = raw_id.replace("habr_", "")
+        if habr_cookie:
+            apply_habr_fn = _get_bot_ref("apply_habr_vacancy_web", apply_habr_vacancy_web)
+            res = apply_habr_fn(clean_id, cover_letter, habr_cookie)
+            if res.get("ok"):
+                res["method"] = "habr_web"
+            return res
+        return {"ok": False, "status": "no_credentials", "detail": "Не настроены куки Хабр Карьеры"}
+
+    # 4. SuperJob
+    if source in ["superjob", "sj"] or v_id.startswith("sj_"):
+        sj_tok = (cfg.get("superjob_token") or "").strip()
+        sj_cookie = (cfg.get("superjob_cookie") or "").strip()
+        sj_res_id = (cfg.get("superjob_resume_id") or "").strip()
+        clean_id = raw_id.replace("sj_", "")
+        if sj_tok or sj_cookie:
+            apply_sj_fn = _get_bot_ref("apply_superjob_vacancy", apply_superjob_vacancy)
+            return apply_sj_fn(clean_id, cover_letter, token=sj_tok, cookie_str=sj_cookie, resume_id=sj_res_id)
+        return {"ok": False, "status": "no_credentials", "detail": "Не настроен токен или куки SuperJob"}
+
+    # 5. GetMatch
+    if source in ["getmatch", "gm"] or v_id.startswith("gm_"):
+        gm_cred = (cfg.get("getmatch_token") or cfg.get("getmatch_cookie") or "").strip()
+        clean_id = raw_id.replace("gm_", "")
+        if gm_cred:
+            apply_gm_fn = _get_bot_ref("apply_getmatch_vacancy", apply_getmatch_vacancy)
+            return apply_gm_fn(clean_id, cover_letter, gm_cred)
+        return {"ok": False, "status": "no_credentials", "detail": "Не настроен токен GetMatch"}
+
+    # 6. Direct Email (если у вакансии есть email рекрутера)
+    recruiter_email = vacancy.get("recruiter_email") or (vacancy.get("contacts") or {}).get("email")
+    if recruiter_email and cfg.get("smtp_host"):
+        send_email_fn = _get_bot_ref("send_email_application", send_email_application)
+        return send_email_fn(recruiter_email, vacancy.get("title", "IT Вакансия"), cover_letter, smtp_config=cfg)
+
+    # 7. Работа.ру
+    if source in ["rabota"] or v_id.startswith("rabota_"):
+        rabota_cred = (cfg.get("rabota_cookie") or cfg.get("rabota_token") or "").strip()
+        clean_id = raw_id.replace("rabota_", "")
+        if rabota_cred:
+            apply_rabota_fn = _get_bot_ref("apply_rabota_vacancy", apply_rabota_vacancy)
+            return apply_rabota_fn(clean_id, cover_letter, rabota_cred)
+        return {"ok": False, "status": "no_credentials", "detail": "Не настроены куки Работа.ру"}
+
+    # 8. Работа России (Госуслуги)
+    if source in ["trudvsem"] or v_id.startswith("tv_"):
+        clean_id = raw_id.replace("tv_", "").replace("trudvsem_", "")
+        apply_tv_fn = _get_bot_ref("apply_trudvsem_vacancy", apply_trudvsem_vacancy)
+        return apply_tv_fn(clean_id, cover_letter, direct_url=vacancy.get("link"))
+
+    # Fallback
+    return {"ok": True, "status": "manual", "method": "manual", "detail": "Отклик подготовлен для ручной отправки", "cover_letter": cover_letter}
+
 
 
 def delete_hh_negotiation_web(topic_id: str, cookie_str: str, host: str = None) -> dict:
@@ -1184,6 +1720,95 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                             return False, True
                         return False, False
 
+            elif (v.get("source") in ["superjob", "sj"] or str(v_id).startswith("sj_")) and (config.get("superjob_token") or config.get("superjob_cookie")):
+                sj_res = apply_superjob_vacancy(raw_id, cover_letter, token=config.get("superjob_token"), cookie_str=config.get("superjob_cookie"), resume_id=config.get("superjob_resume_id"))
+                if sj_res and sj_res.get("ok"):
+                    upd_status(v_id, "applied", cover_letter=cover_letter, auto_applied=True, method="superjob_api", detail=sj_res.get("detail", ""))
+                    if send_msg:
+                        logger.info(f"Отправка Telegram-уведомления об авто-отклике для {v_id} в chat_id={chat_id}")
+                        msg = (
+                            f"🚀 <b>АВТО-ОТКЛИК ОТПРАВЛЕН! [SuperJob]</b>\n\n"
+                            f"🔥 <b>Совпадение: {score}/10</b>\n"
+                            f"💼 <b>{esc_title}</b>\n"
+                            f"🏢 <b>Компания:</b> {esc_company}\n"
+                        )
+                        if esc_salary:
+                            msg += f"💰 <b>Зарплата:</b> {esc_salary}\n"
+                        msg += (
+                            f"\n📝 <b>Отправленное сопроводительное письмо:</b>\n"
+                            f"<blockquote>{esc_letter}</blockquote>\n\n"
+                            f"✅ <i>Отклик успешно зарегистрирован через SuperJob API.</i>"
+                        )
+                        send_msg(token, chat_id, msg, reply_markup={
+                            "inline_keyboard": [
+                                [
+                                    {"text": "🔗 Открыть вакансию на SuperJob", "url": link},
+                                    {"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}
+                                ]
+                            ]
+                        })
+                    return True, True
+
+            elif (v.get("source") in ["getmatch", "gm"] or str(v_id).startswith("gm_")) and (config.get("getmatch_token") or config.get("getmatch_cookie")):
+                gm_cred = config.get("getmatch_token") or config.get("getmatch_cookie")
+                gm_res = apply_getmatch_vacancy(raw_id, cover_letter, gm_cred)
+                if gm_res and gm_res.get("ok"):
+                    upd_status(v_id, "applied", cover_letter=cover_letter, auto_applied=True, method="getmatch_api", detail=gm_res.get("detail", ""))
+                    if send_msg:
+                        logger.info(f"Отправка Telegram-уведомления об авто-отклике для {v_id} в chat_id={chat_id}")
+                        msg = (
+                            f"🚀 <b>АВТО-ОТКЛИК ОТПРАВЛЕН! [GetMatch]</b>\n\n"
+                            f"🔥 <b>Совпадение: {score}/10</b>\n"
+                            f"💼 <b>{esc_title}</b>\n"
+                            f"🏢 <b>Компания:</b> {esc_company}\n"
+                        )
+                        if esc_salary:
+                            msg += f"💰 <b>Зарплата:</b> {esc_salary}\n"
+                        msg += (
+                            f"\n📝 <b>Отправленное сопроводительное письмо:</b>\n"
+                            f"<blockquote>{esc_letter}</blockquote>\n\n"
+                            f"✅ <i>Отклик успешно зарегистрирован через GetMatch API.</i>"
+                        )
+                        send_msg(token, chat_id, msg, reply_markup={
+                            "inline_keyboard": [
+                                [
+                                    {"text": "🔗 Открыть вакансию на GetMatch", "url": link},
+                                    {"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}
+                                ]
+                            ]
+                        })
+                    return True, True
+
+            elif (v.get("source") in ["rabota"] or str(v_id).startswith("rabota_")) and (config.get("rabota_cookie") or config.get("rabota_token")):
+                rab_cred = config.get("rabota_cookie") or config.get("rabota_token")
+                rab_res = apply_rabota_vacancy(raw_id, cover_letter, rab_cred)
+                if rab_res and rab_res.get("ok"):
+                    upd_status(v_id, "applied", cover_letter=cover_letter, auto_applied=True, method="rabota_api", detail=rab_res.get("detail", ""))
+                    if send_msg:
+                        logger.info(f"Отправка Telegram-уведомления об авто-отклике для {v_id} в chat_id={chat_id}")
+                        msg = (
+                            f"🚀 <b>АВТО-ОТКЛИК ОТПРАВЛЕН! [Работа.ру]</b>\n\n"
+                            f"🔥 <b>Совпадение: {score}/10</b>\n"
+                            f"💼 <b>{esc_title}</b>\n"
+                            f"🏢 <b>Компания:</b> {esc_company}\n"
+                        )
+                        if esc_salary:
+                            msg += f"💰 <b>Зарплата:</b> {esc_salary}\n"
+                        msg += (
+                            f"\n📝 <b>Отправленное сопроводительное письмо:</b>\n"
+                            f"<blockquote>{esc_letter}</blockquote>\n\n"
+                            f"✅ <i>Отклик успешно зарегистрирован через Работа.ру.</i>"
+                        )
+                        send_msg(token, chat_id, msg, reply_markup={
+                            "inline_keyboard": [
+                                [
+                                    {"text": "🔗 Открыть вакансию на Работа.ру", "url": link},
+                                    {"text": "💼 Открыть в Mini App", "web_app": {"url": get_miniapp_url()}}
+                                ]
+                            ]
+                        })
+                    return True, True
+
             upd_status(v_id, "inbox", cover_letter=cover_letter, auto_prepared=True)
 
             if score >= notify_min_score and send_msg:
@@ -1221,10 +1846,22 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                     f"<blockquote>{esc_letter}</blockquote>\n\n"
                     f"💡 <i>Нажмите на текст письма выше для копирования в 1 клик. Нажмите 'Откликнуться' для мгновенной подачи!</i>"
                 )
+
+                # Выбор наиболее эффективной кнопки действия в Telegram
+                recruiter_user = v.get("recruiter_username") or (v.get("contacts") or {}).get("username")
+                action_btn = {"text": f"🚀 Откликнуться на {source_name}", "url": link}
+                if recruiter_user:
+                    tg_deep = build_telegram_recruiter_link(recruiter_user, cover_letter)
+                    if tg_deep.get("tg_url"):
+                        action_btn = {"text": f"💬 Написать @{recruiter_user}", "url": tg_deep["tg_url"]}
+                elif v.get("recruiter_email"):
+                    rec_em = v.get("recruiter_email")
+                    action_btn = {"text": "✉️ Написать на Email", "url": f"mailto:{rec_em}?subject={urllib.parse.quote('Отклик: ' + clean_title)}"}
+
                 send_msg(token, chat_id, msg, reply_markup={
                     "inline_keyboard": [
                         [
-                            {"text": f"🚀 Откликнуться на {source_name}", "url": link},
+                            action_btn,
                             {"text": "✅ Отметить 'Откликнулся'", "callback_data": f"mark_applied_{v_id}"}
                         ],
                         [

@@ -37,6 +37,18 @@ from career_hub.controllers.auto_apply import (
     apply_habr_vacancy_web,
     check_habr_web_cookie,
     auto_select_hh_resume,
+    build_telegram_recruiter_link,
+    apply_telegram_vacancy,
+    check_superjob_session,
+    apply_superjob_vacancy,
+    check_getmatch_session,
+    apply_getmatch_vacancy,
+    check_smtp_connection,
+    send_email_application,
+    check_rabota_session,
+    apply_rabota_vacancy,
+    apply_trudvsem_vacancy,
+    apply_vacancy_dispatcher,
 )
 from career_hub.controllers.scrapers import fetch_vacancy_by_id
 
@@ -366,6 +378,41 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                     habr_cookie_valid = True
                     habr_user_name = habr_cookie_info.get("name", "Соискатель")
 
+            # SuperJob
+            sj_tok = (cfg.get("superjob_token") or "").strip()
+            sj_cookie = (cfg.get("superjob_cookie") or "").strip()
+            sj_configured = bool(sj_tok or sj_cookie)
+            sj_masked = ""
+            if sj_tok:
+                sj_masked = f"token={sj_tok[:4]}...{sj_tok[-4:] if len(sj_tok) > 8 else ''}"
+            elif sj_cookie:
+                sj_masked = "Куки SuperJob сохранены"
+
+            # GetMatch
+            gm_tok = (cfg.get("getmatch_token") or "").strip()
+            gm_cookie = (cfg.get("getmatch_cookie") or "").strip()
+            gm_configured = bool(gm_tok or gm_cookie)
+            gm_masked = ""
+            if gm_tok:
+                gm_masked = f"bearer={gm_tok[:4]}...{gm_tok[-4:] if len(gm_tok) > 8 else ''}"
+            elif gm_cookie:
+                gm_masked = "Куки GetMatch сохранены"
+
+            # Rabota.ru
+            rabota_cookie = (cfg.get("rabota_cookie") or "").strip()
+            rabota_tok = (cfg.get("rabota_token") or "").strip()
+            rabota_configured = bool(rabota_cookie or rabota_tok)
+            rabota_masked = ""
+            if rabota_tok:
+                rabota_masked = f"token={rabota_tok[:4]}...{rabota_tok[-4:] if len(rabota_tok) > 8 else ''}"
+            elif rabota_cookie:
+                rabota_masked = "Куки Работа.ру сохранены"
+
+            # SMTP Mailer
+            smtp_host = (cfg.get("smtp_host") or "").strip()
+            smtp_user = (cfg.get("smtp_user") or "").strip()
+            smtp_configured = bool(smtp_host and smtp_user and cfg.get("smtp_password"))
+
             resp_data = {
                 "ok": True,
                 "auto_apply_enabled": cfg.get("auto_apply_enabled", True),
@@ -382,6 +429,22 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 "habr_web_cookie_valid": habr_cookie_valid,
                 "habr_web_cookie_masked": habr_cookie_masked,
                 "habr_user_name": habr_user_name,
+                "superjob_connected": sj_configured,
+                "superjob_configured": sj_configured,
+                "superjob_masked": sj_masked,
+                "getmatch_connected": gm_configured,
+                "getmatch_configured": gm_configured,
+                "getmatch_masked": gm_masked,
+                "rabota_connected": rabota_configured,
+                "rabota_configured": rabota_configured,
+                "rabota_masked": rabota_masked,
+                "smtp_connected": smtp_configured,
+                "smtp_configured": smtp_configured,
+                "smtp_host": smtp_host,
+                "smtp_port": cfg.get("smtp_port", 465),
+                "smtp_user": smtp_user,
+                "smtp_from_name": cfg.get("smtp_from_name", "Никита Фролов"),
+                "contact_email": cfg.get("contact_email", "applicant@example.com"),
                 "total_vacancies": len(cache),
                 "total_applied": applied_count
             }
@@ -628,111 +691,49 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"ok": False, "error": "Вакансия не найдена"}).encode("utf-8"))
                 return
 
-            raw_id = vacancy.get("raw_id") or (str(v_id).replace("habr_", "") if str(v_id).startswith("habr_") else (str(v_id).replace("hh_", "") if str(v_id).startswith("hh_") else str(v_id)))
-
             cfg_fn = _get_bot_ref("load_config", load_config)
-            save_cfg_fn = _get_bot_ref("save_config", save_config)
             config = cfg_fn()
-            groq_key = config["groq_api_key"]
+            groq_key = config.get("groq_api_key", "")
             groq_model = config.get("groq_model", "llama-3.3-70b-versatile")
             gen_letter_fn = _get_bot_ref("generate_cover_letter", generate_cover_letter)
             letter = data.get("cover_letter") or gen_letter_fn(groq_key, groq_model, vacancy)
 
-            hh_tok = config.get("hh_access_token", "").strip().strip('"').strip("'")
-            hh_res_id = config.get("hh_resume_id", "").strip()
-            hh_cookie = config.get("hh_web_cookie", "").strip()
-            hh_res_hash = config.get("hh_resume_hash", os.environ.get("HH_RESUME_HASH", "")).strip()
-            applied_method = "manual"
+            dispatch_fn = _get_bot_ref("apply_vacancy_dispatcher", apply_vacancy_dispatcher)
+            res = dispatch_fn(vacancy, letter, config=config)
 
-            if vacancy.get("source") in ["hh", "headhunter"] or str(v_id).startswith("hh_"):
-                if hh_cookie:
-                    apply_web_fn = _get_bot_ref("apply_hh_vacancy_web", apply_hh_vacancy_web)
-                    web_res = apply_web_fn(raw_id, hh_res_hash, letter, hh_cookie)
-                    if web_res.get("ok"):
-                        applied_method = "hh_web"
-                    else:
-                        api_error = web_res.get("detail", "Ошибка отклика через веб-сессию")
-                        self.send_response(400)
-                        self._send_cors_headers()
-                        self.send_header("Content-Type", "application/json; charset=utf-8")
-                        self.end_headers()
-                        self.wfile.write(json.dumps({
-                            "ok": False,
-                            "error": api_error,
-                            "status": web_res.get("status"),
-                            "cover_letter": letter
-                        }, ensure_ascii=False).encode("utf-8"))
-                        return
-                elif hh_tok:
-                    if not hh_res_id:
-                        sel_resume_fn = _get_bot_ref("auto_select_hh_resume", auto_select_hh_resume)
-                        res_obj = sel_resume_fn(hh_tok)
-                        if res_obj:
-                            hh_res_id = res_obj.get("id", "")
-                            cfg_save = cfg_fn()
-                            cfg_save["hh_resume_id"] = hh_res_id
-                            save_cfg_fn(cfg_save)
+            if not res.get("ok"):
+                self.send_response(400)
+                self._send_cors_headers()
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "ok": False,
+                    "error": res.get("detail", "Ошибка отклика"),
+                    "status": res.get("status"),
+                    "redirect_url": res.get("redirect_url"),
+                    "cover_letter": letter
+                }, ensure_ascii=False).encode("utf-8"))
+                return
 
-                    if hh_res_id:
-                        apply_api_fn = _get_bot_ref("apply_hh_vacancy_api", apply_hh_vacancy_api)
-                        api_res = apply_api_fn(raw_id, hh_res_id, letter, hh_tok)
-                        if api_res.get("ok"):
-                            applied_method = "hh_api"
-                        else:
-                            api_error = api_res.get("detail", "Ошибка отклика через API")
-                            self.send_response(400)
-                            self._send_cors_headers()
-                            self.send_header("Content-Type", "application/json; charset=utf-8")
-                            self.end_headers()
-                            self.wfile.write(json.dumps({
-                                "ok": False,
-                                "error": api_error,
-                                "status": api_res.get("status"),
-                                "cover_letter": letter
-                            }, ensure_ascii=False).encode("utf-8"))
-                            return
-
-            elif vacancy.get("source") in ["habr", "habrcareer"] or str(v_id).startswith("habr_"):
-                habr_cookie = config.get("habr_web_cookie", "").strip()
-                if habr_cookie:
-                    apply_habr_fn = _get_bot_ref("apply_habr_vacancy_web", apply_habr_vacancy_web)
-                    web_res = apply_habr_fn(raw_id, letter, habr_cookie)
-                    if web_res.get("ok"):
-                        applied_method = "habr_web"
-                    else:
-                        api_error = web_res.get("detail", "Ошибка отклика через веб-сессию Хабр Карьеры")
-                        self.send_response(400)
-                        self._send_cors_headers()
-                        self.send_header("Content-Type", "application/json; charset=utf-8")
-                        self.end_headers()
-                        self.wfile.write(json.dumps({
-                            "ok": False,
-                            "error": api_error,
-                            "status": web_res.get("status"),
-                            "redirect_url": web_res.get("redirect_url"),
-                            "cover_letter": letter
-                        }, ensure_ascii=False).encode("utf-8"))
-                        return
-                else:
-                    self.send_response(400)
-                    self._send_cors_headers()
-                    self.send_header("Content-Type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({
-                        "ok": False,
-                        "error": "Не настроены куки веб-сессии Хабр Карьеры в настройках Mini App",
-                        "status": "no_cookie",
-                        "cover_letter": letter
-                    }, ensure_ascii=False).encode("utf-8"))
-                    return
-
+            applied_method = res.get("method") or "manual"
+            auto_applied = applied_method in ["hh_api", "hh_web", "habr_web", "superjob_api", "getmatch_api", "email_smtp", "rabota_api"]
             update_fn = _get_bot_ref("update_vacancy_status", update_vacancy_status)
-            updated = update_fn(v_id, "applied", cover_letter=letter, auto_applied=(applied_method in ["hh_api", "hh_web", "habr_web"]), method=applied_method)
+            updated = update_fn(v_id, "applied", cover_letter=letter, auto_applied=auto_applied, method=applied_method)
             self.send_response(200)
             self._send_cors_headers()
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.end_headers()
-            self.wfile.write(json.dumps({"ok": True, "data": updated, "cover_letter": letter, "applied_method": applied_method}, ensure_ascii=False).encode("utf-8"))
+            self.wfile.write(json.dumps({
+                "ok": True,
+                "data": updated,
+                "cover_letter": letter,
+                "applied_method": applied_method,
+                "status": res.get("status"),
+                "detail": res.get("detail"),
+                "direct_link": res.get("direct_link"),
+                "web_link": res.get("web_link"),
+                "redirect_url": res.get("redirect_url")
+            }, ensure_ascii=False).encode("utf-8"))
             return
 
         elif path == "/api/settings":
@@ -790,6 +791,42 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                     habr_cookie_valid = False
                     habr_cookie_msg = "Куки Хабр Карьеры удалены."
 
+            if "superjob_token" in data:
+                cfg["superjob_token"] = (data.get("superjob_token") or "").strip()
+            if "superjob_cookie" in data:
+                cfg["superjob_cookie"] = (data.get("superjob_cookie") or "").strip()
+            if "superjob_resume_id" in data:
+                cfg["superjob_resume_id"] = (data.get("superjob_resume_id") or "").strip()
+
+            if "getmatch_token" in data:
+                cfg["getmatch_token"] = (data.get("getmatch_token") or "").strip()
+            if "getmatch_cookie" in data:
+                cfg["getmatch_cookie"] = (data.get("getmatch_cookie") or "").strip()
+
+            if "rabota_cookie" in data:
+                cfg["rabota_cookie"] = (data.get("rabota_cookie") or "").strip()
+            if "rabota_token" in data:
+                cfg["rabota_token"] = (data.get("rabota_token") or "").strip()
+
+            if "smtp_host" in data:
+                cfg["smtp_host"] = (data.get("smtp_host") or "").strip()
+            if "smtp_port" in data:
+                cfg["smtp_port"] = safe_int(data.get("smtp_port"), 465)
+            if "smtp_user" in data:
+                cfg["smtp_user"] = (data.get("smtp_user") or "").strip()
+            if "smtp_password" in data:
+                val = (data.get("smtp_password") or "").strip()
+                if val:
+                    cfg["smtp_password"] = val
+            if "smtp_ssl" in data:
+                cfg["smtp_ssl"] = bool(data.get("smtp_ssl", True))
+            if "smtp_from_name" in data:
+                cfg["smtp_from_name"] = (data.get("smtp_from_name") or "").strip()
+            if "contact_email" in data:
+                cfg["contact_email"] = (data.get("contact_email") or "").strip()
+            if "resume_pdf_path" in data:
+                cfg["resume_pdf_path"] = (data.get("resume_pdf_path") or "").strip()
+
             if "auto_apply_enabled" in data:
                 cfg["auto_apply_enabled"] = bool(data["auto_apply_enabled"])
             if "auto_apply_min_score" in data:
@@ -827,6 +864,56 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 }
             }, ensure_ascii=False).encode("utf-8"))
             return
+
+        elif path == "/api/check_superjob":
+            token = (data.get("token") or "").strip()
+            cookie_str = (data.get("cookie") or "").strip()
+            check_sj_fn = _get_bot_ref("check_superjob_session", check_superjob_session)
+            res = check_sj_fn(token=token, cookie_str=cookie_str)
+            self.send_response(200)
+            self._send_cors_headers()
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps(res, ensure_ascii=False).encode("utf-8"))
+            return
+
+        elif path == "/api/check_getmatch":
+            token_or_cookie = (data.get("token") or data.get("cookie") or "").strip()
+            check_gm_fn = _get_bot_ref("check_getmatch_session", check_getmatch_session)
+            res = check_gm_fn(token_or_cookie=token_or_cookie)
+            self.send_response(200)
+            self._send_cors_headers()
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps(res, ensure_ascii=False).encode("utf-8"))
+            return
+
+        elif path == "/api/check_smtp":
+            smtp_host = (data.get("smtp_host") or "").strip()
+            smtp_port = safe_int(data.get("smtp_port"), 465)
+            smtp_user = (data.get("smtp_user") or "").strip()
+            smtp_password = (data.get("smtp_password") or "").strip()
+            use_ssl = bool(data.get("smtp_ssl", True))
+            check_smtp_fn = _get_bot_ref("check_smtp_connection", check_smtp_connection)
+            res = check_smtp_fn(smtp_host, smtp_port, smtp_user, smtp_password, use_ssl=use_ssl)
+            self.send_response(200)
+            self._send_cors_headers()
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps(res, ensure_ascii=False).encode("utf-8"))
+            return
+
+        elif path == "/api/check_rabota":
+            val = (data.get("cookie") or data.get("token") or "").strip()
+            check_rab_fn = _get_bot_ref("check_rabota_session", check_rabota_session)
+            res = check_rab_fn(cookie_or_token=val)
+            self.send_response(200)
+            self._send_cors_headers()
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps(res, ensure_ascii=False).encode("utf-8"))
+            return
+
 
         elif path == "/api/check_habr_cookie":
             test_cookie = (data.get("cookie") or "").strip()

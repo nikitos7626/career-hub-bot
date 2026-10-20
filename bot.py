@@ -16,6 +16,7 @@ import hmac
 import hashlib
 from urllib.parse import urlparse, parse_qs
 import requests
+import smtplib
 
 # Ensure UTF-8 output encoding for cross-platform compatibility
 if hasattr(sys.stdout, "reconfigure"):
@@ -108,6 +109,7 @@ from career_hub.controllers.scrapers import (
     fetch_linkedin_vacancies,
     fetch_linkedin_vacancy_full,
     fetch_tg_channel_vacancies,
+    extract_telegram_contacts,
     fetch_rabota_vacancies,
     fetch_rabota_vacancy_full,
     fetch_trudvsem_vacancies,
@@ -140,6 +142,18 @@ from career_hub.controllers.auto_apply import (
     apply_hh_vacancy_web,
     check_habr_web_cookie,
     apply_habr_vacancy_web,
+    build_telegram_recruiter_link,
+    apply_telegram_vacancy,
+    check_superjob_session,
+    apply_superjob_vacancy,
+    check_getmatch_session,
+    apply_getmatch_vacancy,
+    check_smtp_connection,
+    send_email_application,
+    check_rabota_session,
+    apply_rabota_vacancy,
+    apply_trudvsem_vacancy,
+    apply_vacancy_dispatcher,
     delete_hh_negotiation_web,
     remove_vacancy_from_profile_and_history,
     poll_hh_negotiations_and_notify,
