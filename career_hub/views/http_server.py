@@ -13,7 +13,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-from career_hub.models.config import load_config, save_config
+from career_hub.models.config import load_config, save_config, safe_int
 from career_hub.models.storage import (
     load_cache,
     load_statuses,
@@ -78,6 +78,15 @@ def _get_bot_ref(attr_name, fallback):
     return fallback
 
 
+def _get_allowed_telegram_id(config=None) -> int:
+    if config is None:
+        cfg_fn = _get_bot_ref("load_config", load_config)
+        config = cfg_fn()
+    safe_int_fn = _get_bot_ref("safe_int", safe_int)
+    raw = config.get("allowed_telegram_id") or config.get("chat_id") or os.environ.get("ALLOWED_TELEGRAM_ID", "0")
+    return safe_int_fn(raw)
+
+
 class MiniAppRequestHandler(BaseHTTPRequestHandler):
     def _send_cors_headers(self):
         # Защитные HTTP-заголовки
@@ -139,8 +148,11 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
             return None
         cfg_fn = _get_bot_ref("load_config", load_config)
         config = cfg_fn()
-        allowed_id = config.get("allowed_telegram_id") or config.get("chat_id") or 1139872910
-        if session.get("user_id") == allowed_id:
+        allowed_id = _get_allowed_telegram_id(config)
+        user_id = safe_int(session.get("user_id"))
+        if allowed_id and user_id == allowed_id:
+            return session
+        elif not allowed_id and user_id:
             return session
         return None
 
@@ -397,7 +409,7 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
             cfg_fn = _get_bot_ref("load_config", load_config)
             config = cfg_fn()
             bot_token = config["bot_token"]
-            allowed_id = config.get("allowed_telegram_id") or config.get("chat_id") or 1139872910
+            allowed_id = _get_allowed_telegram_id(config)
 
             val_fn = _get_bot_ref("validate_telegram_init_data", validate_telegram_init_data)
             user_info = val_fn(init_data, bot_token)
@@ -409,8 +421,8 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"ok": False, "error": "Недействительные данные Telegram WebApp"}).encode("utf-8"))
                 return
 
-            uid = user_info.get("id")
-            if uid != allowed_id:
+            uid = safe_int(user_info.get("id"))
+            if allowed_id and uid != allowed_id:
                 logger.warning(f"Попытка входа с чужим Telegram ID: {uid} (ожидался {allowed_id})")
                 self.send_response(403)
                 self._send_cors_headers()
@@ -418,6 +430,11 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"ok": False, "error": "Доступ разрешён только владельцу бота."}).encode("utf-8"))
                 return
+            elif not allowed_id and uid:
+                config["allowed_telegram_id"] = uid
+                save_cfg_fn = _get_bot_ref("save_config", save_config)
+                save_cfg_fn(config)
+                logger.info(f"Владелец бота успешно зарегистрирован через Mini App: ID {uid}")
 
             create_sess_fn = _get_bot_ref("create_user_session", create_user_session)
             token, exp = create_sess_fn(uid, device="Telegram Mini App", days=30)
@@ -437,12 +454,12 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
         elif path == "/api/auth/exchange_token":
             one_time_token = data.get("token", "")
             consume_fn = _get_bot_ref("consume_one_time_token", consume_one_time_token)
-            uid = consume_fn(one_time_token)
+            uid = safe_int(consume_fn(one_time_token))
             cfg_fn = _get_bot_ref("load_config", load_config)
             config = cfg_fn()
-            allowed_id = config.get("allowed_telegram_id") or config.get("chat_id") or 1139872910
+            allowed_id = _get_allowed_telegram_id(config)
 
-            if not uid or uid != allowed_id:
+            if not uid or (allowed_id and uid != allowed_id):
                 self.send_response(401)
                 self._send_cors_headers()
                 self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -510,13 +527,14 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.end_headers()
             uname_fn = _get_bot_ref("get_bot_username", get_bot_username)
-            uname = uname_fn()
+            uname = uname_fn() or ""
+            bot_link = f"https://t.me/{uname}?start=login_{s_id}" if uname else ""
             self.wfile.write(json.dumps({
                 "ok": True,
                 "session_id": s_id,
                 "code": code,
                 "bot_username": uname,
-                "bot_link": f"https://t.me/{uname}?start=login_{s_id}"
+                "bot_link": bot_link
             }).encode("utf-8"))
             return
 

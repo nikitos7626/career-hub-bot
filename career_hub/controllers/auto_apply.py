@@ -723,7 +723,10 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
                                 ]
                             })
                             if not tg_res:
-                                logger.error(f"Не удалось доставить уведомление об авто-отклике {v_id} в Telegram")
+                                if not chat_id:
+                                    logger.info(f"Telegram-уведомление об авто-отклике {v_id} отложено: ожидание первого старта диалога от владельца (/start в боте Telegram)")
+                                else:
+                                    logger.error(f"Не удалось доставить уведомление об авто-отклике {v_id} в Telegram")
                         else:
                             logger.warning(f"send_message недоступен, уведомление для {v_id} не отправлено")
                         return True, True

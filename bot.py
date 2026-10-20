@@ -43,6 +43,7 @@ sys.modules["bot"] = sys.modules[__name__]
 from career_hub.models.config import (
     DEFAULT_CONFIG,
     CANDIDATE_PROFILE,
+    safe_int,
     _config_cache,
     _config_cache_mtime,
     _config_cache_lock,
@@ -100,6 +101,7 @@ from career_hub.controllers.scrapers import (
     fetch_hh_vacancy_full,
     fetch_habr_vacancies,
     fetch_habr_vacancy_by_id,
+    build_habr_rss_url,
     fetch_getmatch_vacancies,
     fetch_superjob_vacancies,
     DEFAULT_SUPERJOB_KEY,

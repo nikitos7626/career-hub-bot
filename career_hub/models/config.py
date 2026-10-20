@@ -14,10 +14,21 @@ _config_cache = None
 _config_cache_mtime = 0.0
 _config_cache_lock = threading.Lock()
 
+def safe_int(val, default: int = 0) -> int:
+    """Безопасно преобразует значение в int, возвращая default при ошибке или пустом значении."""
+    try:
+        if val is None or val == "":
+            return default
+        return int(str(val).strip())
+    except (ValueError, TypeError):
+        return default
+
+
 DEFAULT_CONFIG = {
     "bot_token": os.environ.get("BOT_TOKEN", ""),
-    "chat_id": int(os.environ.get("CHAT_ID", "0")) if os.environ.get("CHAT_ID") else 0,
-    "allowed_telegram_id": int(os.environ.get("ALLOWED_TELEGRAM_ID", "0")) if os.environ.get("ALLOWED_TELEGRAM_ID") else 0,
+    "bot_username": os.environ.get("BOT_USERNAME", ""),
+    "chat_id": safe_int(os.environ.get("CHAT_ID", "0")),
+    "allowed_telegram_id": safe_int(os.environ.get("ALLOWED_TELEGRAM_ID", "0")),
     "groq_api_key": os.environ.get("GROQ_API_KEY", ""),
     "groq_model": os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
     "min_match_score": 6,

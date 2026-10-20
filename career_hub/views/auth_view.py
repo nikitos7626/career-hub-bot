@@ -29,11 +29,13 @@ def get_bot_username(bot_token: str = None) -> str:
     global _BOT_USERNAME_CACHE
     if _BOT_USERNAME_CACHE:
         return _BOT_USERNAME_CACHE
+    cfg = {}
+    try:
+        cfg = load_config()
+    except Exception:
+        pass
     if not bot_token:
-        try:
-            bot_token = load_config().get("bot_token", "")
-        except Exception:
-            bot_token = ""
+        bot_token = cfg.get("bot_token", "")
     if bot_token:
         try:
             bot_mod = sys.modules.get("bot")
@@ -46,7 +48,7 @@ def get_bot_username(bot_token: str = None) -> str:
                     return uname
         except Exception as e:
             logger.debug(f"Could not fetch bot username via getMe: {e}")
-    return os.environ.get("BOT_USERNAME", "asistant7626_bot")
+    return os.environ.get("BOT_USERNAME") or cfg.get("bot_username", "") or ""
 
 
 def create_user_session(user_id: int, device: str = "Browser", days: int = 30) -> tuple[str, int]:

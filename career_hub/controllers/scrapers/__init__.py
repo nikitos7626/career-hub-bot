@@ -8,7 +8,7 @@ from career_hub.models.config import load_config
 from career_hub.models.storage import get_from_cache, save_to_cache
 from career_hub.controllers.scrapers.base import HTTP_HEADERS, quick_prefilter_reject
 from career_hub.controllers.scrapers.hh import fetch_hh_vacancies, fetch_hh_vacancy_full
-from career_hub.controllers.scrapers.habr import fetch_habr_vacancies, fetch_habr_vacancy_by_id
+from career_hub.controllers.scrapers.habr import fetch_habr_vacancies, fetch_habr_vacancy_by_id, build_habr_rss_url
 from career_hub.controllers.scrapers.getmatch import fetch_getmatch_vacancies
 from career_hub.controllers.scrapers.superjob import fetch_superjob_vacancies, DEFAULT_SUPERJOB_KEY
 from career_hub.controllers.scrapers.linkedin import fetch_linkedin_vacancies, fetch_linkedin_vacancy_full
@@ -86,6 +86,7 @@ __all__ = [
     "fetch_hh_vacancy_full",
     "fetch_habr_vacancies",
     "fetch_habr_vacancy_by_id",
+    "build_habr_rss_url",
     "fetch_getmatch_vacancies",
     "fetch_superjob_vacancies",
     "DEFAULT_SUPERJOB_KEY",

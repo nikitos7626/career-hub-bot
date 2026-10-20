@@ -56,11 +56,17 @@
       from { transform: translateY(30px); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
     }
+    .hidden {
+      display: none !important;
+    }
+    #app.hidden {
+      display: none !important;
+    }
   </style>
 </head>
 <body class="min-h-screen pb-20 select-none bg-slate-950 text-slate-100">
   <!-- Main App Container (Hidden until authenticated) -->
-  <div id="app" class="hidden max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+  <div id="app" style="display: none !important;" class="hidden max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
 
     <!-- Header & Profile (Wide Responsive Bar) -->
     <header class="flex items-center justify-between pb-3 sm:pb-5 border-b border-slate-800/80 gap-2">
@@ -415,7 +421,7 @@
   </div>
 
   <!-- Auth Modal (Desktop & External Browser) -->
-  <div id="authModal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+  <div id="authModal" class="hidden fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-4">
     <div class="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center modal-enter">
       
       <!-- Shield Icon Glowing -->
@@ -539,15 +545,35 @@
       return headers;
     }
 
+    let isAuthenticated = false;
+
     function showAuthModal() {
-      document.getElementById('app')?.classList.add('hidden');
-      document.getElementById('authModal').classList.remove('hidden');
+      isAuthenticated = false;
+      const appEl = document.getElementById('app');
+      if (appEl) {
+        appEl.classList.add('hidden');
+        appEl.style.setProperty('display', 'none', 'important');
+      }
+      const authEl = document.getElementById('authModal');
+      if (authEl) {
+        authEl.classList.remove('hidden');
+        authEl.style.removeProperty('display');
+      }
       if (window.lucide) lucide.createIcons();
     }
 
     function hideAuthModal() {
-      document.getElementById('authModal').classList.add('hidden');
-      document.getElementById('app')?.classList.remove('hidden');
+      isAuthenticated = true;
+      const authEl = document.getElementById('authModal');
+      if (authEl) {
+        authEl.classList.add('hidden');
+        authEl.style.setProperty('display', 'none', 'important');
+      }
+      const appEl = document.getElementById('app');
+      if (appEl) {
+        appEl.classList.remove('hidden');
+        appEl.style.removeProperty('display');
+      }
       if (pollIntervalId) {
         clearInterval(pollIntervalId);
         pollIntervalId = null;
@@ -555,8 +581,17 @@
     }
 
     function showAccessDenied(msg) {
-      document.getElementById('app')?.classList.add('hidden');
-      document.getElementById('authModal').classList.add('hidden');
+      isAuthenticated = false;
+      const appEl = document.getElementById('app');
+      if (appEl) {
+        appEl.classList.add('hidden');
+        appEl.style.setProperty('display', 'none', 'important');
+      }
+      const authEl = document.getElementById('authModal');
+      if (authEl) {
+        authEl.classList.add('hidden');
+        authEl.style.setProperty('display', 'none', 'important');
+      }
       if (pollIntervalId) {
         clearInterval(pollIntervalId);
         pollIntervalId = null;
@@ -564,6 +599,44 @@
       if (msg) document.getElementById('deniedMessage').textContent = msg;
       document.getElementById('deniedModal').classList.remove('hidden');
       if (window.lucide) lucide.createIcons();
+    }
+
+    function initAuthProtection() {
+      const observer = new MutationObserver(() => {
+        if (isAuthenticated) return;
+        const authModal = document.getElementById('authModal');
+        const appEl = document.getElementById('app');
+
+        // Если пользователь не авторизован, но authModal был удален из DOM через DevTools
+        if (!authModal || !document.body.contains(authModal)) {
+          if (appEl) appEl.remove();
+          document.body.innerHTML = `
+            <div style="position:fixed;inset:0;background:#020617;color:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:sans-serif;z-index:99999;">
+              <div style="width:64px;height:64px;border-radius:16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;margin-bottom:16px;color:#f87171;font-size:28px;">🔒</div>
+              <h2 style="font-size:20px;font-weight:bold;margin-bottom:8px;">Доступ заблокирован</h2>
+              <p style="color:#94a3b8;font-size:13px;max-width:340px;line-height:1.5;">Обнаружено удаление окна авторизации. Перезагрузите страницу для входа через Telegram.</p>
+            </div>`;
+          return;
+        }
+
+        // Если authModal скрыли стилями без авторизации
+        const deniedModal = document.getElementById('deniedModal');
+        const isDenied = deniedModal && !deniedModal.classList.contains('hidden');
+        if (!isDenied && (authModal.classList.contains('hidden') || authModal.style.display === 'none' || authModal.style.visibility === 'hidden' || authModal.style.opacity === '0')) {
+          authModal.classList.remove('hidden');
+          authModal.style.removeProperty('display');
+          authModal.style.removeProperty('visibility');
+          authModal.style.removeProperty('opacity');
+        }
+
+        // Если кто-то попытался отобразить #app без авторизации через изменение CSS классов/стилей
+        if (appEl && (!appEl.classList.contains('hidden') || appEl.style.display !== 'none')) {
+          appEl.classList.add('hidden');
+          appEl.style.setProperty('display', 'none', 'important');
+        }
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
     }
 
     async function requestLoginSession() {
@@ -574,13 +647,18 @@
           currentAuthSessionId = data.session_id;
           document.getElementById('authCodeBadge').textContent = data.code;
           const linkBtn = document.getElementById('botAuthLink');
-          linkBtn.href = data.bot_link;
-          linkBtn.onclick = () => {
-            if (tg?.openTelegramLink) {
-              tg.openTelegramLink(data.bot_link);
-              return false;
-            }
-          };
+          if (data.bot_link) {
+            linkBtn.href = data.bot_link;
+            linkBtn.classList.remove('hidden');
+            linkBtn.onclick = () => {
+              if (tg?.openTelegramLink) {
+                tg.openTelegramLink(data.bot_link);
+                return false;
+              }
+            };
+          } else {
+            linkBtn.classList.add('hidden');
+          }
           startSessionPolling(data.session_id);
         }
       } catch (e) {
@@ -1528,6 +1606,7 @@
 
     // Инициализация при загрузке
     document.addEventListener('DOMContentLoaded', () => {
+      initAuthProtection();
       initAuthAndApp();
     });
   </script>

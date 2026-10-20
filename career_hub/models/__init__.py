@@ -5,6 +5,7 @@ Career Hub Models Package.
 from career_hub.models.config import (
     DEFAULT_CONFIG,
     CANDIDATE_PROFILE,
+    safe_int,
     load_config,
     save_config,
 )
@@ -50,6 +51,7 @@ from career_hub.models.vacancy import (
 __all__ = [
     "DEFAULT_CONFIG",
     "CANDIDATE_PROFILE",
+    "safe_int",
     "load_config",
     "save_config",
     "DATA_DIR",

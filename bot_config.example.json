@@ -1,5 +1,6 @@
 {
   "bot_token": "YOUR_TELEGRAM_BOT_TOKEN",
+  "bot_username": "YOUR_BOT_USERNAME",
   "chat_id": 123456789,
   "allowed_telegram_id": 123456789,
   "groq_api_key": "YOUR_GROQ_API_KEY",

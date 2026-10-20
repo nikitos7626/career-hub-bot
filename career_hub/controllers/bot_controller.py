@@ -12,7 +12,7 @@ import logging
 import threading
 import requests
 
-from career_hub.models.config import load_config, save_config
+from career_hub.models.config import load_config, save_config, safe_int
 from career_hub.models.storage import (
     load_seen_vacancies,
     seen_add,
@@ -72,9 +72,17 @@ def _get_bot_ref(attr_name, fallback):
 
 
 def send_message(token, chat_id, text, reply_markup=None):
+    if not token:
+        logger.warning("Невозможно отправить сообщение в Telegram: bot_token не настроен")
+        return None
+    cid = safe_int(chat_id)
+    if not cid:
+        logger.info("Ожидание первого старта диалога от владельца в Telegram (chat_id не настроен). Отправьте /start боту.")
+        return None
+
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
-        "chat_id": chat_id,
+        "chat_id": cid,
         "text": text,
         "parse_mode": "HTML",
         "disable_web_page_preview": False
@@ -106,9 +114,15 @@ def send_message(token, chat_id, text, reply_markup=None):
 
 
 def edit_message_text(token, chat_id, message_id, text, reply_markup=None):
+    if not token:
+        return None
+    cid = safe_int(chat_id)
+    if not cid:
+        return None
+
     url = f"https://api.telegram.org/bot{token}/editMessageText"
     payload = {
-        "chat_id": chat_id,
+        "chat_id": cid,
         "message_id": message_id,
         "text": text,
         "parse_mode": "HTML",
@@ -139,9 +153,15 @@ def edit_message_text(token, chat_id, message_id, text, reply_markup=None):
 
 
 def edit_message_reply_markup(token, chat_id, message_id, reply_markup):
+    if not token:
+        return None
+    cid = safe_int(chat_id)
+    if not cid:
+        return None
+
     url = f"https://api.telegram.org/bot{token}/editMessageReplyMarkup"
     payload = {
-        "chat_id": chat_id,
+        "chat_id": cid,
         "message_id": message_id,
         "reply_markup": reply_markup
     }
@@ -157,6 +177,8 @@ def edit_message_reply_markup(token, chat_id, message_id, reply_markup):
 
 
 def answer_callback_query(token, callback_query_id, text=None, show_alert=False):
+    if not token or not callback_query_id:
+        return None
     url = f"https://api.telegram.org/bot{token}/answerCallbackQuery"
     payload = {"callback_query_id": callback_query_id, "show_alert": show_alert}
     if text:
@@ -243,14 +265,28 @@ def telegram_updates_worker():
     create_ot_fn = _get_bot_ref("create_one_time_token", create_one_time_token)
     poll_hh_fn = _get_bot_ref("poll_hh_negotiations_and_notify", poll_hh_negotiations_and_notify)
 
-    config = cfg_fn()
-    token = config["bot_token"]
-    groq_key = config["groq_api_key"]
-    groq_model = config.get("groq_model", "llama-3.3-70b-versatile")
-
     offset = 0
+    consecutive_errors = 0
+    last_waiting_log = 0.0
+
     while True:
         try:
+            config = cfg_fn()
+            token = (config.get("bot_token") or os.environ.get("BOT_TOKEN", "")).strip()
+            chat_id_cfg = safe_int(config.get("chat_id", 0))
+            groq_key = config.get("groq_api_key", "")
+            groq_model = config.get("groq_model", "llama-3.3-70b-versatile")
+
+            if not token:
+                logger.warning("Telegram polling: bot_token не настроен. Ожидание настройки bot_token (пауза 10 сек)...")
+                time.sleep(10)
+                continue
+
+            now = time.time()
+            if not chat_id_cfg and (now - last_waiting_log > 60):
+                logger.info("Ожидание первого старта диалога от владельца (/start в боте Telegram)...")
+                last_waiting_log = now
+
             url = f"https://api.telegram.org/bot{token}/getUpdates"
             payload = {
                 "offset": offset,
@@ -258,24 +294,49 @@ def telegram_updates_worker():
                 "allowed_updates": ["message", "callback_query"]
             }
             req_post = _get_bot_ref("requests", requests)
-            resp = req_post.post(url, json=payload, timeout=25)
+            try:
+                resp = req_post.post(url, json=payload, timeout=25)
+            except requests.exceptions.Timeout:
+                time.sleep(0.5)
+                continue
+            except Exception as conn_err:
+                consecutive_errors += 1
+                backoff = min(30, 2 ** min(consecutive_errors, 5))
+                logger.warning(f"Сбой соединения при получении Telegram updates ({conn_err}). Пауза {backoff} сек...")
+                time.sleep(backoff)
+                continue
 
             if resp.status_code == 200:
-                data = resp.json()
-                for update in data.get("result", []):
+                consecutive_errors = 0
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = None
+
+                if not data or not data.get("ok"):
+                    logger.warning("Telegram getUpdates вернул некорректный ответ.")
+                    time.sleep(2)
+                    continue
+
+                updates = data.get("result", [])
+                if not updates:
+                    time.sleep(0.5)
+                    continue
+
+                for update in updates:
                     offset = update["update_id"] + 1
 
                     if "callback_query" in update:
                         cb = update["callback_query"]
                         cb_id = cb["id"]
                         cb_data = cb.get("data", "")
-                        from_user = cb["from"]["id"]
+                        from_user = safe_int(cb.get("from", {}).get("id"))
                         message = cb.get("message", {})
-                        chat_id = message.get("chat", {}).get("id", from_user)
+                        chat_id = safe_int(message.get("chat", {}).get("id", from_user))
 
                         cfg = cfg_fn()
-                        allowed_owner_id = cfg.get("allowed_telegram_id") or cfg.get("chat_id") or 1139872910
-                        if from_user != allowed_owner_id and chat_id != allowed_owner_id:
+                        allowed_owner_id = safe_int(cfg.get("allowed_telegram_id") or cfg.get("chat_id") or os.environ.get("ALLOWED_TELEGRAM_ID", "0"))
+                        if allowed_owner_id and from_user != allowed_owner_id and chat_id != allowed_owner_id:
                             logger.warning(f"Попытка доступа от неизвестного пользователя {from_user} в callback {cb_data}")
                             ans_cb_fn(token, cb_id, "⛔ Доступ запрещён", show_alert=True)
                             continue
@@ -472,16 +533,26 @@ def telegram_updates_worker():
                     elif "message" in update:
                         msg = update["message"]
                         msg_text = msg.get("text", "").strip()
-                        msg_chat_id = msg.get("chat", {}).get("id")
-                        from_user = msg.get("from", {}).get("id", msg_chat_id)
+                        msg_chat_id = safe_int(msg.get("chat", {}).get("id"))
+                        from_user = safe_int(msg.get("from", {}).get("id", msg_chat_id))
 
                         cfg = cfg_fn()
-                        allowed_owner_id = cfg.get("allowed_telegram_id") or cfg.get("chat_id") or 1139872910
+                        allowed_owner_id = safe_int(cfg.get("allowed_telegram_id") or cfg.get("chat_id") or os.environ.get("ALLOWED_TELEGRAM_ID", "0"))
 
-                        if from_user != allowed_owner_id and msg_chat_id != allowed_owner_id:
+                        if allowed_owner_id and from_user != allowed_owner_id and msg_chat_id != allowed_owner_id:
                             logger.warning(f"Попытка доступа от неизвестного пользователя {from_user} (chat {msg_chat_id})")
                             send_msg_fn(token, msg_chat_id, "⛔ <b>Доступ запрещён</b>\n\nЭтот бот и веб-панель Career Hub настроены исключительно для владельца.")
                             continue
+                        elif not allowed_owner_id and from_user:
+                            cfg["allowed_telegram_id"] = from_user
+                            cfg["chat_id"] = msg_chat_id
+                            save_cfg_fn(cfg)
+                            logger.info(f"Владелец бота успешно зарегистрирован: ID {from_user}, chat_id {msg_chat_id}")
+
+                        if not cfg.get("chat_id") or safe_int(cfg.get("chat_id")) != msg_chat_id:
+                            cfg["chat_id"] = msg_chat_id
+                            save_cfg_fn(cfg)
+                            logger.info(f"Диалог с владельцем успешно инициирован! Привязан chat_id={msg_chat_id}")
 
                         # Подтверждение сессии браузера через глубокую ссылку /start login_<session_id>
                         p_logins = _get_bot_ref("pending_logins", pending_logins)
@@ -737,9 +808,34 @@ def telegram_updates_worker():
                             send_msg_fn(token, msg_chat_id, welcome_text, reply_markup=reply_markup)
                             continue
 
+            elif resp.status_code in (401, 404):
+                consecutive_errors += 1
+                logger.error(f"Неверный токен Telegram (HTTP {resp.status_code}). Проверьте bot_token в конфигурации. Пауза 10 сек...")
+                time.sleep(10)
+            elif resp.status_code == 429:
+                consecutive_errors += 1
+                retry_after = 5
+                try:
+                    retry_after = int(resp.json().get("parameters", {}).get("retry_after", 5))
+                except Exception:
+                    pass
+                logger.warning(f"Telegram Rate Limit (HTTP 429). Ожидание {retry_after} сек...")
+                time.sleep(retry_after)
+            elif resp.status_code == 409:
+                consecutive_errors += 1
+                logger.warning("Конфликт getUpdates: уже запущен другой экземпляр бота (HTTP 409). Пауза 5 сек...")
+                time.sleep(5)
+            else:
+                consecutive_errors += 1
+                backoff = min(30, 2 ** min(consecutive_errors, 5))
+                logger.warning(f"Ошибка Telegram getUpdates (HTTP {resp.status_code}): {resp.text[:200]}. Пауза {backoff} сек...")
+                time.sleep(backoff)
+
         except Exception as e:
-            logger.error(f"Ошибка в цикле telegram_updates_worker: {e}")
-            time.sleep(3)
+            consecutive_errors += 1
+            backoff = min(30, 2 ** min(consecutive_errors, 5))
+            logger.error(f"Ошибка в цикле telegram_updates_worker: {e}. Пауза {backoff} сек...")
+            time.sleep(backoff)
 
 
 def vacancy_monitor_worker():
@@ -763,14 +859,17 @@ def vacancy_monitor_worker():
     while True:
         logger.info("Начало цикла сбора вакансий со всех подключенных платформ...")
         config = cfg_fn()
-        token = config["bot_token"]
-        chat_id = config["chat_id"]
-        groq_key = config["groq_api_key"]
+        token = config.get("bot_token", "")
+        chat_id = safe_int(config.get("chat_id", 0))
+        groq_key = config.get("groq_api_key", "")
         groq_model = config.get("groq_model", "llama-3.3-70b-versatile")
         min_score = config.get("min_match_score", 6)
         interval = config.get("check_interval_seconds", 600)
         max_analyses = config.get("max_ai_analyses_per_cycle", 35)
         ai_delay = config.get("ai_delay_seconds", 2.8)
+
+        if not chat_id:
+            logger.info("Мониторинг вакансий: ожидание первого старта диалога от владельца (/start в боте Telegram)...")
 
         sent_count = 0
         quiet_count = 0

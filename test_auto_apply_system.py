@@ -6,6 +6,7 @@ import os
 import json
 import unittest
 from unittest.mock import patch, MagicMock
+import requests
 
 # Import functions from bot.py
 import bot
@@ -858,6 +859,246 @@ class TestSecurityAndHardening(unittest.TestCase):
         dcs = "\n".join(f"{k}={v}" for k, v in sorted(params_no_date.items()))
         params_no_date["hash"] = hmac.new(secret_key, dcs.encode("utf-8"), hashlib.sha256).hexdigest()
         self.assertIsNone(validate_telegram_init_data(urllib.parse.urlencode(params_no_date), bot_token))
+
+    def test_get_bot_username_neutral_default_and_config(self):
+        from career_hub.views.auth_view import get_bot_username, _BOT_USERNAME_CACHE
+        import career_hub.views.auth_view as auth_view
+        auth_view._BOT_USERNAME_CACHE = None
+
+        # When BOT_USERNAME and config are empty, return neutral empty string (no hardcoded personal bot)
+        with patch.dict(os.environ, {"BOT_USERNAME": ""}):
+            with patch("career_hub.views.auth_view.load_config", return_value={"bot_token": ""}):
+                auth_view._BOT_USERNAME_CACHE = None
+                res = get_bot_username()
+                self.assertEqual(res, "")
+                self.assertNotIn("asistant7626_bot", res)
+
+        # When configured in config
+        with patch.dict(os.environ, {"BOT_USERNAME": ""}):
+            with patch("career_hub.views.auth_view.load_config", return_value={"bot_token": "", "bot_username": "custom_configured_bot"}):
+                auth_view._BOT_USERNAME_CACHE = None
+                res = get_bot_username()
+                self.assertEqual(res, "custom_configured_bot")
+
+        # When set in env var
+        with patch.dict(os.environ, {"BOT_USERNAME": "env_bot"}):
+            with patch("career_hub.views.auth_view.load_config", return_value={"bot_token": ""}):
+                auth_view._BOT_USERNAME_CACHE = None
+                res = get_bot_username()
+                self.assertEqual(res, "env_bot")
+
+    def test_safe_int_and_invalid_env_resilience(self):
+        from career_hub.models.config import safe_int, DEFAULT_CONFIG
+        from career_hub.views.http_server import _get_allowed_telegram_id
+
+        # 1. safe_int conversions
+        self.assertEqual(safe_int("123"), 123)
+        self.assertEqual(safe_int(" 456 "), 456)
+        self.assertEqual(safe_int(789), 789)
+        self.assertEqual(safe_int(None), 0)
+        self.assertEqual(safe_int(""), 0)
+        self.assertEqual(safe_int("invalid_string"), 0)
+        self.assertEqual(safe_int("invalid_string", default=999), 999)
+
+        # 2. Config & env resilience when ALLOWED_TELEGRAM_ID or CHAT_ID is a non-numeric string
+        with patch.dict(os.environ, {"ALLOWED_TELEGRAM_ID": "non_numeric_abc", "CHAT_ID": "non_numeric_xyz"}):
+            cfg = {"allowed_telegram_id": " 555 ", "chat_id": "0"}
+            allowed_id = _get_allowed_telegram_id(cfg)
+            self.assertEqual(allowed_id, 555)
+            self.assertIsInstance(allowed_id, int)
+
+            # Fallback to env var
+            cfg_empty = {"allowed_telegram_id": "", "chat_id": ""}
+            allowed_from_env = _get_allowed_telegram_id(cfg_empty)
+            self.assertEqual(allowed_from_env, 0)
+
+    def test_habr_query_dict_rss_conversion_prevents_adapter_error(self):
+        from career_hub.controllers.scrapers.habr import build_habr_rss_url, fetch_habr_vacancies, fetch_habr_vacancy_by_id
+
+        # 1. Dict query format from DEFAULT_CONFIG
+        dict_query = {"query": "junior java", "divisions": ["development", "backend"]}
+        built_url = build_habr_rss_url(dict_query)
+        self.assertTrue(built_url.startswith("https://career.habr.com/vacancies/rss?"))
+        self.assertIn("q=junior+java", built_url)
+        self.assertIn("divisions[]=development", built_url)
+        self.assertIn("divisions[]=backend", built_url)
+
+        # 2. String URL format
+        str_url = "https://career.habr.com/vacancies/rss?s[]=1&s[]=2&q=junior+java"
+        self.assertEqual(build_habr_rss_url(str_url), str_url)
+
+        # 3. Dict with direct url key
+        dict_with_url = {"url": "https://career.habr.com/vacancies/rss?q=spring"}
+        self.assertEqual(build_habr_rss_url(dict_with_url), "https://career.habr.com/vacancies/rss?q=spring")
+
+        # 4. Plain text query
+        self.assertEqual(build_habr_rss_url("fastapi"), "https://career.habr.com/vacancies/rss?q=fastapi")
+
+        # 5. None and empty queries must safely return the base RSS URL
+        self.assertEqual(build_habr_rss_url(None), "https://career.habr.com/vacancies/rss")
+        self.assertEqual(build_habr_rss_url(""), "https://career.habr.com/vacancies/rss")
+        self.assertEqual(build_habr_rss_url(123), "https://career.habr.com/vacancies/rss")
+
+        # 6. fetch_habr_vacancies with None or empty must return empty list without HTTP call
+        self.assertEqual(fetch_habr_vacancies(None), [])
+        self.assertEqual(fetch_habr_vacancies(""), [])
+        self.assertIsNone(fetch_habr_vacancy_by_id(None))
+        self.assertIsNone(fetch_habr_vacancy_by_id(""))
+
+        # 7. fetch_habr_vacancies must execute requests.get with a string URL (never dict)
+        with patch("career_hub.controllers.scrapers.habr.requests.get") as mock_get:
+            fake_rss = """<?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <item>
+                  <guid>100012345</guid>
+                  <title>Junior Java Developer</title>
+                  <link>https://career.habr.com/vacancies/100012345</link>
+                  <author>Innovations Lab</author>
+                  <pubDate>Mon, 20 Oct 2026 12:00:00 GMT</pubDate>
+                  <description>Java 21, Spring Boot, PostgreSQL</description>
+                </item>
+                <item>
+                  <guid></guid>
+                  <title>Empty Guid Vacancy</title>
+                </item>
+              </channel>
+            </rss>"""
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.content = fake_rss.encode("utf-8")
+            mock_get.return_value = mock_resp
+
+            # Call with DICTIONARY query
+            vacs = fetch_habr_vacancies(dict_query)
+            self.assertEqual(len(vacs), 2)
+            self.assertEqual(vacs[0]["id"], "habr_100012345")
+            self.assertEqual(vacs[0]["title"], "Junior Java Developer")
+            self.assertEqual(vacs[0]["company"], "Innovations Lab")
+            self.assertEqual(vacs[1]["id"], "habr_")
+            self.assertEqual(vacs[1]["title"], "Empty Guid Vacancy")
+
+            # Check argument passed to requests.get was a valid string URL
+            called_url = mock_get.call_args[0][0]
+            self.assertIsInstance(called_url, str)
+            self.assertTrue(called_url.startswith("https://career.habr.com/vacancies/rss"))
+
+    def test_send_message_safe_chat_id_validation_and_logging(self):
+        from career_hub.controllers.bot_controller import send_message, edit_message_text, edit_message_reply_markup
+
+        # When chat_id is 0 or empty, must NOT make HTTP request to Telegram and log info
+        with patch("career_hub.controllers.bot_controller.requests.post") as mock_post:
+            with patch("career_hub.controllers.bot_controller.logger.info") as mock_log:
+                res = send_message("token123", 0, "Test message")
+                self.assertIsNone(res)
+                self.assertFalse(mock_post.called)
+                mock_log.assert_called_with("Ожидание первого старта диалога от владельца в Telegram (chat_id не настроен). Отправьте /start боту.")
+
+                # None or string "0"
+                res2 = send_message("token123", None, "Test message")
+                self.assertIsNone(res2)
+                self.assertFalse(mock_post.called)
+
+                # Edit message text with 0 chat_id
+                res3 = edit_message_text("token123", 0, 999, "Text")
+                self.assertIsNone(res3)
+                self.assertFalse(mock_post.called)
+
+                # Edit markup with 0 chat_id
+                res4 = edit_message_reply_markup("token123", 0, 999, {})
+                self.assertIsNone(res4)
+                self.assertFalse(mock_post.called)
+
+        # When token is missing
+        with patch("career_hub.controllers.bot_controller.requests.post") as mock_post:
+            res_no_tok = send_message("", 123456, "Hello")
+            self.assertIsNone(res_no_tok)
+            self.assertFalse(mock_post.called)
+
+    def test_telegram_polling_error_backoff_and_status_checks(self):
+        from career_hub.controllers.bot_controller import telegram_updates_worker
+
+        class StopLoop(BaseException):
+            pass
+
+        # 1. Missing token: logs warning and sleeps 10s
+        with patch("bot.load_config", return_value={"bot_token": ""}), \
+             patch("career_hub.controllers.bot_controller.load_config", return_value={"bot_token": ""}), \
+             patch.dict(os.environ, {"BOT_TOKEN": ""}), \
+             patch("career_hub.controllers.bot_controller.time.sleep", side_effect=StopLoop) as mock_sleep, \
+             patch("career_hub.controllers.bot_controller.logger.warning") as mock_log:
+            with self.assertRaises(StopLoop):
+                telegram_updates_worker()
+            mock_sleep.assert_called_with(10)
+            mock_log.assert_called()
+
+        # 2. HTTP 401 Unauthorized: logs error and sleeps 10s (no tight loop)
+        mock_resp_401 = MagicMock()
+        mock_resp_401.status_code = 401
+        mock_resp_401.text = "Unauthorized"
+        with patch("bot.load_config", return_value={"bot_token": "fake_token", "chat_id": 123}), \
+             patch("career_hub.controllers.bot_controller.load_config", return_value={"bot_token": "fake_token", "chat_id": 123}), \
+             patch("bot.requests.post", return_value=mock_resp_401), \
+             patch("career_hub.controllers.bot_controller.requests.post", return_value=mock_resp_401), \
+             patch("career_hub.controllers.bot_controller.time.sleep", side_effect=StopLoop) as mock_sleep, \
+             patch("career_hub.controllers.bot_controller.logger.error") as mock_log:
+            with self.assertRaises(StopLoop):
+                telegram_updates_worker()
+            mock_sleep.assert_called_with(10)
+            self.assertIn("Неверный токен Telegram (HTTP 401)", mock_log.call_args[0][0])
+
+        # 3. HTTP 429 Rate Limit: sleeps retry_after
+        mock_resp_429 = MagicMock()
+        mock_resp_429.status_code = 429
+        mock_resp_429.json.return_value = {"parameters": {"retry_after": 7}}
+        with patch("bot.load_config", return_value={"bot_token": "fake_token", "chat_id": 123}), \
+             patch("career_hub.controllers.bot_controller.load_config", return_value={"bot_token": "fake_token", "chat_id": 123}), \
+             patch("bot.requests.post", return_value=mock_resp_429), \
+             patch("career_hub.controllers.bot_controller.requests.post", return_value=mock_resp_429), \
+             patch("career_hub.controllers.bot_controller.time.sleep", side_effect=StopLoop) as mock_sleep, \
+             patch("career_hub.controllers.bot_controller.logger.warning") as mock_log:
+            with self.assertRaises(StopLoop):
+                telegram_updates_worker()
+            mock_sleep.assert_called_with(7)
+            self.assertIn("Telegram Rate Limit (HTTP 429)", mock_log.call_args[0][0])
+
+        # 4. Connection failure: applies exponential backoff
+        with patch("bot.load_config", return_value={"bot_token": "fake_token", "chat_id": 123}), \
+             patch("career_hub.controllers.bot_controller.load_config", return_value={"bot_token": "fake_token", "chat_id": 123}), \
+             patch("bot.requests.post", side_effect=requests.exceptions.ConnectionError("Network down")), \
+             patch("career_hub.controllers.bot_controller.requests.post", side_effect=requests.exceptions.ConnectionError("Network down")), \
+             patch("career_hub.controllers.bot_controller.time.sleep", side_effect=StopLoop) as mock_sleep, \
+             patch("career_hub.controllers.bot_controller.logger.warning") as mock_log:
+            with self.assertRaises(StopLoop):
+                telegram_updates_worker()
+            mock_sleep.assert_called_with(2)
+            self.assertIn("Сбой соединения при получении Telegram updates", mock_log.call_args[0][0])
+
+    def test_miniapp_auth_modal_dom_tampering_protection(self):
+        html_path = os.path.join(os.path.dirname(__file__), "miniapp_index.html")
+        with open(html_path, "r", encoding="utf-8") as f:
+            html = f.read()
+
+        # 1. Auth modal overlay must be completely opaque (bg-slate-950), not semi-transparent
+        self.assertIn('id="authModal" class="hidden fixed inset-0 z-50 bg-slate-950 flex', html)
+        self.assertNotIn('bg-slate-950/90 backdrop-blur-md', html)
+
+        # 2. Main app container must start strictly hidden
+        self.assertIn('id="app" style="display: none !important;" class="hidden', html)
+
+        # 3. CSS has explicit .hidden rules
+        self.assertIn('.hidden {\n      display: none !important;\n    }', html)
+        self.assertIn('#app.hidden {\n      display: none !important;\n    }', html)
+
+        # 4. Anti-tampering MutationObserver must be active
+        self.assertIn("function initAuthProtection()", html)
+        self.assertIn("initAuthProtection();", html)
+        self.assertIn("MutationObserver", html)
+        self.assertIn("Доступ заблокирован", html)
+
+        # 5. Ensure no hardcoded private tokens or emails
+        self.assertNotIn("asistant7626_bot", html)
+        self.assertNotIn("shadowkek.space", html)
 
 
 if __name__ == "__main__":
