@@ -54,15 +54,15 @@ def get_miniapp_url() -> str:
     cfg_fn = _get_bot_ref("load_config", None)
     if cfg_fn:
         try:
-            return cfg_fn().get("miniapp_url") or os.environ.get("MINIAPP_URL") or "https://jobs.example.com/"
+            return cfg_fn().get("miniapp_url") or os.environ.get("MINIAPP_URL") or "https://jobs.shadowkek.space/"
         except Exception:
             pass
-    return os.environ.get("MINIAPP_URL") or "https://jobs.example.com/"
+    return os.environ.get("MINIAPP_URL") or "https://jobs.shadowkek.space/"
 
 
 def get_hh_headers(access_token: str) -> dict:
     cfg_fn = _get_bot_ref("load_config", None)
-    contact = "applicant@example.com"
+    contact = "nikita@shadowkek.space"
     if cfg_fn:
         try:
             contact = cfg_fn().get("contact_email") or os.environ.get("CONTACT_EMAIL") or contact
@@ -199,7 +199,7 @@ def check_hh_web_cookie(cookie_str: str) -> dict | None:
         host_m = re.search(r'redirect_host=([^;]+)', cookie_str)
         host = host_m.group(1).strip() if host_m else "volgograd.hh.ru"
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
             "Cookie": cookie_str,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         }
@@ -828,14 +828,26 @@ def send_email_application(to_email: str, vacancy_title: str, cover_letter: str,
     if not host or not user or not pwd:
         return {"ok": False, "status": "no_credentials", "detail": "SMTP параметры не настроены в Mini App"}
 
+    clean_title = re.sub(r'[\r\n\t]+', ' ', vacancy_title).strip()[:150]
+    clean_from_name = re.split(r'[\r\n]', from_name)[0].strip()
+    clean_user = re.split(r'[\r\n]', user)[0].strip()
+    clean_contact = re.split(r'[\r\n]', contact_email)[0].strip()
+    clean_to = re.split(r'[\r\n]', clean_email)[0].strip()
+    from_name = clean_from_name
+    contact_email = clean_contact
+
     msg = MIMEMultipart("mixed")
-    msg["From"] = f"{from_name} <{user}>"
-    msg["To"] = clean_email
-    msg["Reply-To"] = contact_email
-    msg["Subject"] = f"Отклик на позицию {vacancy_title} — {from_name}"
+    msg["From"] = f"{clean_from_name} <{clean_user}>"
+    msg["To"] = clean_to
+    msg["Reply-To"] = clean_contact
+    msg["Subject"] = f"Отклик на позицию {clean_title} — {clean_from_name}"
 
     alt = MIMEMultipart("alternative")
     alt.attach(MIMEText(cover_letter, "plain", "utf-8"))
+
+    port_url = cfg.get("portfolio_url") or "https://park.shadowkek.space"
+    port_display = port_url.replace("https://", "").replace("http://", "").rstrip("/")
+    res_tunnel = cfg.get("resume_quick_tunnel_url") or "https://south-tomato-therapist-minimum.trycloudflare.com/"
 
     html_content = f"""<html>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b;">
@@ -844,7 +856,7 @@ def send_email_application(to_email: str, vacancy_title: str, cover_letter: str,
         <div style="white-space: pre-line; font-size: 15px; color: #334155;">{html.escape(cover_letter)}</div>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
         <p style="font-size: 13px; color: #64748b; margin-bottom: 4px;">С уважением,<br><strong>{html.escape(from_name)}</strong></p>
-        <p style="font-size: 12px; color: #94a3b8; margin: 0;">Контакты: {html.escape(contact_email)} | Портфолио: <a href="https://park.example.com" style="color: #4f46e5;">park.example.com</a></p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 0;">Контакты: {html.escape(contact_email)} | Портфолио/Резюме: <a href="{html.escape(res_tunnel)}" style="color: #4f46e5;">онлайн-резюме</a> | Проект (деплой): <a href="{html.escape(port_url)}" style="color: #4f46e5;">{html.escape(port_display)}</a></p>
     </div>
 </body>
 </html>"""
@@ -858,13 +870,17 @@ def send_email_application(to_email: str, vacancy_title: str, cover_letter: str,
             pdf_file = candidate_pdf
 
     if pdf_file and os.path.exists(pdf_file):
-        try:
-            with open(pdf_file, "rb") as f:
-                part = MIMEApplication(f.read(), Name=os.path.basename(pdf_file))
-            part["Content-Disposition"] = f'attachment; filename="{os.path.basename(pdf_file)}"'
-            msg.attach(part)
-        except Exception as e:
-            logger.warning(f"Не удалось прикрепить PDF резюме: {e}")
+        resolved_pdf = os.path.realpath(pdf_file)
+        if resolved_pdf.lower().endswith(".pdf") and ".." not in str(pdf_file):
+            try:
+                with open(resolved_pdf, "rb") as f:
+                    part = MIMEApplication(f.read(), Name=os.path.basename(resolved_pdf))
+                part["Content-Disposition"] = f'attachment; filename="{os.path.basename(resolved_pdf)}"'
+                msg.attach(part)
+            except Exception as e:
+                logger.warning(f"Не удалось прикрепить PDF резюме: {e}")
+        else:
+            logger.warning(f"Отклонен небезопасный файл резюме: {pdf_file}")
 
     smtp_mod = _get_bot_ref("smtplib", smtplib)
     try:
@@ -998,6 +1014,14 @@ def apply_vacancy_dispatcher(vacancy: dict, cover_letter: str, config: dict = No
     v_id = str(vacancy.get("id", ""))
     source = str(vacancy.get("source", "")).lower()
     raw_id = vacancy.get("raw_id") or v_id
+
+    # Проверка черного списка компаний
+    comp_lower = str(vacancy.get("company", "")).lower()
+    title_lower = str(vacancy.get("title", "")).lower()
+    for b in cfg.get("blacklisted_companies", []):
+        b_clean = b.lower().strip()
+        if b_clean and (b_clean in comp_lower or b_clean in title_lower):
+            return {"ok": False, "status": "blacklisted", "detail": f"Компания находится в черном списке ({b})"}
 
     # 1. Telegram Channels
     if source == "telegram" or v_id.startswith("tg_"):
@@ -1417,13 +1441,27 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
     apply_api = _get_bot_ref("apply_hh_vacancy_api", apply_hh_vacancy_api)
     apply_habr_web = _get_bot_ref("apply_habr_vacancy_web", apply_habr_vacancy_web)
     sel_res = _get_bot_ref("auto_select_hh_resume", auto_select_hh_resume)
-    upd_status = _get_bot_ref("update_vacancy_status", update_vacancy_status)
+    _raw_upd_status = _get_bot_ref("update_vacancy_status", update_vacancy_status)
+    def upd_status(vid, st, **kw):
+        kw.setdefault("company", company)
+        kw.setdefault("title", clean_title)
+        return _raw_upd_status(vid, st, **kw)
 
     cover_letter = None
     esc_title = html.escape(clean_title)
     esc_company = html.escape(company)
     esc_salary = html.escape(salary) if salary else None
     esc_source_name = html.escape(source_name)
+
+    # Защитный барьер: проверка черного списка компаний
+    blacklisted = cfg.get("blacklisted_companies", [])
+    comp_lower = company.lower() if company else ""
+    title_lower = clean_title.lower() if clean_title else ""
+    for b in blacklisted:
+        b_clean = b.lower().strip()
+        if b_clean and (b_clean in comp_lower or b_clean in title_lower):
+            logger.info(f"Пропуск авто-отклика для {v_id}: компания '{company}' находится в черном списке ({b_clean})")
+            return False, False
 
     if auto_apply_enabled and score >= auto_apply_min_score:
         logger.info(f"Генерация авто-отклика для [{source_name}] {clean_title} (Score {score})...")

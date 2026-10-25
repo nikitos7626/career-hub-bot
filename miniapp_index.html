@@ -56,6 +56,19 @@
       from { transform: translateY(30px); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
     }
+    @keyframes toastSlide {
+      from { transform: translate(-50%, 20px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+    .toast-anim {
+      animation: toastSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .card-hover {
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-2px);
+    }
     .hidden {
       display: none !important;
     }
@@ -655,6 +668,14 @@
     </div>
   </div>
 
+  <!-- Floating Toast Notification -->
+  <div id="toastNotification" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none max-w-sm w-full px-4">
+    <div id="toastCard" class="toast-anim pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-slate-900/95 border border-slate-700/80 text-white shadow-2xl backdrop-blur-xl text-xs sm:text-sm font-medium">
+      <i id="toastIcon" data-lucide="check-circle" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
+      <span id="toastMessage" class="truncate flex-1">Уведомление</span>
+    </div>
+  </div>
+
   <script>
     // Инициализация Telegram WebApp
     const tg = window.Telegram?.WebApp;
@@ -687,6 +708,41 @@
       }
     }
     window.haptic = haptic;
+
+    // Плавающие уведомления (Toast)
+    let _toastTimeout = null;
+    function showToast(msg, type = 'success') {
+      const toast = document.getElementById('toastNotification');
+      const msgEl = document.getElementById('toastMessage');
+      const iconEl = document.getElementById('toastIcon');
+      const cardEl = document.getElementById('toastCard');
+      if (!toast || !msgEl || !iconEl || !cardEl) return;
+
+      msgEl.textContent = msg;
+      if (type === 'success') {
+        iconEl.setAttribute('data-lucide', 'check-circle-2');
+        iconEl.className = 'w-4 h-4 text-emerald-400 flex-shrink-0';
+        cardEl.className = 'toast-anim pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-slate-900/95 border border-emerald-500/40 text-white shadow-2xl shadow-emerald-500/10 backdrop-blur-xl text-xs sm:text-sm font-medium';
+      } else if (type === 'error') {
+        iconEl.setAttribute('data-lucide', 'alert-circle');
+        iconEl.className = 'w-4 h-4 text-rose-400 flex-shrink-0';
+        cardEl.className = 'toast-anim pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-slate-900/95 border border-rose-500/40 text-white shadow-2xl shadow-rose-500/10 backdrop-blur-xl text-xs sm:text-sm font-medium';
+      } else {
+        iconEl.setAttribute('data-lucide', 'sparkles');
+        iconEl.className = 'w-4 h-4 text-indigo-400 flex-shrink-0';
+        cardEl.className = 'toast-anim pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-slate-900/95 border border-indigo-500/40 text-white shadow-2xl shadow-indigo-500/10 backdrop-blur-xl text-xs sm:text-sm font-medium';
+      }
+
+      toast.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+      haptic('light');
+
+      clearTimeout(_toastTimeout);
+      _toastTimeout = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 2300);
+    }
+    window.showToast = showToast;
 
     // Состояние авторизации
     let currentAuthSessionId = null;
@@ -953,6 +1009,23 @@
         activeBtn.classList.remove('text-slate-400');
         activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm', 'font-semibold');
       }
+
+      // Highlight active stat card
+      const statCards = {
+        inbox: document.getElementById('statInboxCard'),
+        saved: document.getElementById('statSavedCard'),
+        applied: document.getElementById('statAppliedCard'),
+        interview: document.getElementById('statInterviewCard')
+      };
+      Object.entries(statCards).forEach(([k, card]) => {
+        if (!card) return;
+        if (k === tab) {
+          card.classList.add('ring-2', 'ring-indigo-500/50', 'bg-slate-850');
+        } else {
+          card.classList.remove('ring-2', 'ring-indigo-500/50', 'bg-slate-850');
+        }
+      });
+
       applyFilters();
     }
 
@@ -1144,8 +1217,22 @@
 
       list.forEach(v => {
         const card = document.createElement('div');
-        card.className = 'p-5 sm:p-6 rounded-2xl bg-slate-900/90 border border-slate-800/90 hover:border-slate-700 shadow-md hover:shadow-indigo-500/5 transition flex flex-col justify-between group';
-        
+
+        const score = Number(v.match_score || v.analysis?.match_score || 7);
+        const isTopMatch = score >= 9;
+        const isStrongMatch = score >= 8;
+        let cardBorderClass = 'border-slate-800/90 hover:border-slate-700 bg-slate-900/90';
+        if (isTopMatch) {
+          cardBorderClass = 'border-emerald-500/40 hover:border-emerald-400/80 shadow-lg shadow-emerald-500/5 bg-gradient-to-b from-slate-900 via-slate-900/95 to-slate-950';
+        } else if (isStrongMatch) {
+          cardBorderClass = 'border-indigo-500/35 hover:border-indigo-400/70 shadow-md shadow-indigo-500/5 bg-gradient-to-b from-slate-900 via-slate-900/95 to-slate-950';
+        }
+        card.className = `p-5 sm:p-6 rounded-2xl ${cardBorderClass} card-hover transition-all flex flex-col justify-between group relative overflow-hidden`;
+
+        const topAccentBar = isTopMatch
+          ? `<div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-500"></div>`
+          : (isStrongMatch ? `<div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 to-violet-500"></div>` : '');
+
         const safeId = escapeHtml(String(v.id || ''));
         const safeLink = sanitizeUrl(v.link);
         const safeTitle = escapeHtml(v.title || '');
@@ -1176,7 +1263,7 @@
         if (v.source === 'trudvsem') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-red-600/10 text-red-400 border border-red-600/20">🇷🇺 Работа России</span>`;
         if (v.source === 'telegram' || v.source === 'telegram_channel') sourceBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">📢 Telegram</span>`;
 
-        const isRemote = v.source === 'remotive' || 
+        const isRemote = v.source === 'remotive' ||
           (v.location && /удал[её]н|remote/i.test(v.location)) ||
           (v.schedule && /удал[её]н|remote/i.test(v.schedule)) ||
           (v.title && /удал[её]н|remote/i.test(v.title)) ||
@@ -1184,11 +1271,16 @@
           (v.structured_description && /удал[её]н|remote/i.test(v.structured_description));
         const remoteBadge = isRemote ? `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🟢 Удалённо</span>` : '';
 
-        const score = Number(v.match_score || v.analysis?.match_score || 7);
-        const scoreColor = score >= 8 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
-        const scoreBadge = `<span class="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ${scoreColor}">🔥 ${score}/10</span>`;
+        let scoreBadge = '';
+        if (score >= 9) {
+          scoreBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] sm:text-xs font-black bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/10">🔥 ${score}/10 <span class="hidden sm:inline font-bold text-[9px] uppercase tracking-wider text-emerald-400/80">Топ</span></span>`;
+        } else if (score >= 8) {
+          scoreBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">⚡ ${score}/10</span>`;
+        } else {
+          scoreBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">🎯 ${score}/10</span>`;
+        }
 
-        const salaryHtml = safeSalary 
+        const salaryHtml = safeSalary
           ? `<div class="text-xs sm:text-sm font-semibold text-emerald-400 mt-1 flex items-center gap-1.5"><i data-lucide="banknote" class="w-4 h-4"></i> ${safeSalary}</div>`
           : '';
 
@@ -1212,11 +1304,12 @@
             </div>`
           : '';
 
-        const locationHtml = safeLocation 
+        const locationHtml = safeLocation
           ? `<div class="text-[11px] sm:text-xs text-slate-400 flex items-center gap-1 mt-0.5"><i data-lucide="map-pin" class="w-3 h-3 text-slate-500"></i> ${safeLocation}</div>`
           : '';
 
         card.innerHTML = `
+          ${topAccentBar}
           <div>
             <!-- Badges header -->
             <div class="flex items-center justify-between gap-1 mb-2.5">
@@ -1247,13 +1340,14 @@
 
             <!-- AI Verdict Card -->
             ${safeVerdict ? `
-            <div class="my-3 p-3 sm:p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs leading-relaxed text-slate-300">
-              <div class="font-semibold text-indigo-300 flex items-center gap-1.5 mb-1">
-                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i> AI Оценка
+            <div class="my-3 p-3.5 rounded-2xl bg-gradient-to-br from-indigo-950/30 via-slate-950/70 to-slate-950/90 border border-indigo-500/20 border-l-4 border-l-indigo-500 text-xs leading-relaxed text-slate-300 shadow-inner">
+              <div class="font-bold text-indigo-300 flex items-center gap-1.5 mb-1.5">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
+                <span class="tracking-wide">AI Анализ соответствия</span>
               </div>
-              <p>${safeVerdict}</p>
-              ${safeEduWarn ? `<div class="mt-1.5 text-amber-400 font-medium flex items-center gap-1"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> ${safeEduWarn}</div>` : ''}
-              ${safeRecom ? `<div class="mt-1 text-slate-400 italic">Совет: ${safeRecom}</div>` : ''}
+              <p class="text-slate-200">${safeVerdict}</p>
+              ${safeEduWarn ? `<div class="mt-2 text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-xl font-medium flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-400 flex-shrink-0"></i> ${safeEduWarn}</div>` : ''}
+              ${safeRecom ? `<div class="mt-2 text-sky-300/90 bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-xl flex items-center gap-1.5"><i data-lucide="lightbulb" class="w-3.5 h-3.5 text-sky-400 flex-shrink-0"></i> <span><b>Совет:</b> ${safeRecom}</span></div>` : ''}
             </div>
             ` : ''}
 
@@ -1336,7 +1430,14 @@
         applied_at: newStatus === 'applied' ? (statuses[stringId]?.applied_at || new Date().toISOString()) : statuses[stringId]?.applied_at,
         cover_letter: coverLetter || statuses[stringId]?.cover_letter
       };
-      
+
+      // Toast feedback
+      if (newStatus === 'saved') showToast('Вакансия сохранена в планы ⭐', 'info');
+      else if (newStatus === 'applied') showToast('Отклик отмечен как отправленный 🚀', 'success');
+      else if (newStatus === 'interview') showToast('Приглашение на интервью! 📞', 'success');
+      else if (newStatus === 'archived') showToast('Вакансия перемещена в архив', 'info');
+      else if (newStatus === 'inbox') showToast('Вакансия возвращена в новые', 'info');
+
       // Локальный пересчет
       recalcStats();
       applyFilters();
@@ -1480,11 +1581,12 @@
       try {
         await navigator.clipboard.writeText(text);
         document.getElementById('copyBtnText').textContent = 'Скопировано! ✅';
+        showToast('Письмо скопировано в буфер обмена! ✅', 'success');
         setTimeout(() => {
           document.getElementById('copyBtnText').textContent = 'Скопировать';
         }, 2000);
       } catch (err) {
-        alert('Не удалось скопировать, выделите текст вручную.');
+        showToast('Не удалось скопировать, выделите текст вручную', 'error');
       }
     }
 
@@ -1496,10 +1598,10 @@
       const letter = document.getElementById('letterContentBox').value.trim();
       const isHabr = (activeVacancyForModal.source === 'habr' || activeVacancyForModal.source === 'habrcareer');
       const defaultBtnText = isHabr ? 'Откликнуться на Хабр Карьере в 1 клик' : 'Откликнуться на HeadHunter в 1 клик';
-      
+
       btn.disabled = true;
       btnText.textContent = 'Отправка отклика...';
-      
+
       try {
         const resp = await fetch('./api/auto_apply', {
           method: 'POST',
@@ -1509,6 +1611,7 @@
         const data = await resp.json();
         if (data.ok) {
           btnText.textContent = 'Отклик отправлен! ✅';
+          showToast(data.message || 'Отклик успешно отправлен! 🚀', 'success');
           changeStatus(activeVacancyForModal.id, 'applied', letter);
 
           // Прямой переход к диалогу рекрутера в Telegram
@@ -1528,12 +1631,12 @@
             btnText.textContent = defaultBtnText;
           }, 1200);
         } else {
-          alert('Ошибка отклика: ' + (data.error || 'Не удалось отправить'));
+          showToast('Ошибка отклика: ' + (data.error || 'Не удалось отправить'), 'error');
           btn.disabled = false;
           btnText.textContent = 'Попробовать снова';
         }
       } catch (e) {
-        alert('Сетевая ошибка при отправке отклика.');
+        showToast('Сетевая ошибка при отправке отклика', 'error');
         btn.disabled = false;
         btnText.textContent = 'Попробовать снова';
       }
@@ -1978,6 +2081,7 @@
           }
           
           if (btn) btn.textContent = 'Сохранено! ✅';
+          showToast('Все параметры и сессии сохранены! ✅', 'success');
           setTimeout(() => {
             if (btn) {
               btn.disabled = false;

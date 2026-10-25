@@ -46,6 +46,7 @@ from career_hub.models.vacancy import (
     extract_tech_stack,
     format_structured_description,
     normalize_vacancy_for_api,
+    normalize_company_title_key,
 )
 
 __all__ = [
@@ -88,4 +89,5 @@ __all__ = [
     "extract_tech_stack",
     "format_structured_description",
     "normalize_vacancy_for_api",
+    "normalize_company_title_key",
 ]

@@ -6,6 +6,7 @@ Thread-safe, atomic file persistence for cache, statuses, seen vacancies, negoti
 import os
 import sys
 import json
+import time
 import logging
 import threading
 from datetime import datetime, timezone
@@ -36,15 +37,41 @@ def _get_path(attr_name, default_val):
     bot_mod = sys.modules.get("bot")
     if bot_mod and hasattr(bot_mod, attr_name):
         return getattr(bot_mod, attr_name)
+    if not os.path.exists(default_val):
+        root_path = os.path.join(os.path.dirname(DATA_DIR), os.path.basename(default_val))
+        if os.path.exists(root_path):
+            return root_path
     return default_val
 
 
 def _atomic_write_json(filepath, data, indent=2):
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    tmp_path = f"{filepath}.tmp.{os.getpid()}"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=indent, ensure_ascii=False)
-    os.replace(tmp_path, filepath)
+    dir_name = os.path.dirname(filepath)
+    os.makedirs(dir_name, exist_ok=True)
+    unique_suffix = f"{os.getpid()}_{threading.get_ident()}_{time.time_ns()}"
+    tmp_path = f"{filepath}.tmp.{unique_suffix}"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=indent, ensure_ascii=False)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except (AttributeError, OSError):
+                pass
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                os.replace(tmp_path, filepath)
+                break
+            except PermissionError as pe:
+                if attempt == max_retries - 1:
+                    raise pe
+                time.sleep(0.05 * (2 ** attempt))
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
 
 
 # ==========================================
@@ -213,7 +240,11 @@ def save_seen_vacancies(seen):
             seen = {v_id: datetime.now(timezone.utc).isoformat() for v_id in seen}
         if len(seen) > 5000:
             sorted_items = sorted(seen.items(), key=lambda x: x[1], reverse=True)[:5000]
-            seen = dict(sorted_items)
+            if isinstance(seen, dict):
+                seen.clear()
+                seen.update(sorted_items)
+            else:
+                seen = dict(sorted_items)
         _atomic_write_json(fpath, seen, indent=2)
 
 

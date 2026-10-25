@@ -1100,6 +1100,53 @@ class TestSecurityAndHardening(unittest.TestCase):
         self.assertNotIn("asistant7626_bot", html)
         self.assertNotIn("shadowkek.space", html)
 
+    @patch("smtplib.SMTP_SSL")
+    def test_send_email_crlf_and_path_traversal_protection(self, mock_smtp):
+        from career_hub.controllers.auto_apply import send_email_application
+        cfg = {
+            "smtp_host": "smtp.example.com",
+            "smtp_port": 465,
+            "smtp_user": "test@example.com",
+            "smtp_password": "secret_password",
+            "smtp_ssl": True,
+            "smtp_from_name": "Никита\r\nBcc: evil@attacker.com",
+            "contact_email": "nikita@example.com\r\nX-Injected: True",
+            "resume_pdf_path": "../../etc/passwd"
+        }
+        mock_server = MagicMock()
+        mock_smtp.return_value = mock_server
+
+        res = send_email_application(
+            "recipient@example.com\r\nBcc: spam@evil.org",
+            "Junior Java\r\nSubject: Injected Subject\r\n",
+            "Сопроводительное письмо",
+            cfg
+        )
+        self.assertTrue(res["ok"])
+        self.assertTrue(mock_server.sendmail.called)
+        sent_msg_str = mock_server.sendmail.call_args[0][2]
+        # Verify no raw CRLF injection in headers
+        self.assertNotIn("Bcc: evil@attacker.com", sent_msg_str)
+        self.assertNotIn("Bcc: spam@evil.org", sent_msg_str)
+        self.assertNotIn("X-Injected: True", sent_msg_str)
+        self.assertNotIn("/etc/passwd", sent_msg_str)
+
+    def test_atomic_write_json_resilience(self):
+        import tempfile
+        import shutil
+        from career_hub.models.storage import _atomic_write_json
+        temp_dir = tempfile.mkdtemp()
+        try:
+            test_file = os.path.join(temp_dir, "test_resilience.json")
+            data = {"key": "value", "count": 123}
+            _atomic_write_json(test_file, data)
+            self.assertTrue(os.path.exists(test_file))
+            with open(test_file, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+            self.assertEqual(loaded, data)
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
 
 class TestHabrAutoApply(unittest.TestCase):
     def setUp(self):
@@ -1400,7 +1447,8 @@ class TestHabrAutoApply(unittest.TestCase):
         from career_hub.views.http_server import MiniAppRequestHandler
         from career_hub.views.auth_view import create_user_session
 
-        test_cfg = bot.load_config()
+        orig_cfg = dict(bot.load_config())
+        test_cfg = dict(orig_cfg)
         test_cfg["allowed_telegram_id"] = 111222333
         test_cfg["chat_id"] = 111222333
         test_cfg["groq_api_key"] = "test_groq_key"
@@ -1488,6 +1536,7 @@ class TestHabrAutoApply(unittest.TestCase):
         finally:
             server.shutdown()
             server.server_close()
+            bot.save_config(orig_cfg)
 
 
 class TestMultiPlatformAutoApply(unittest.TestCase):
@@ -1747,6 +1796,12 @@ class TestMultiPlatformAutoApply(unittest.TestCase):
         from career_hub.views.http_server import MiniAppRequestHandler
         from career_hub.views.auth_view import create_user_session
 
+        orig_cfg = dict(bot.load_config())
+        test_cfg = dict(orig_cfg)
+        test_cfg["allowed_telegram_id"] = 999888777
+        test_cfg["chat_id"] = 999888777
+        bot.save_config(test_cfg)
+
         session_token, _ = create_user_session(999888777)
         headers = {
             "Authorization": f"Bearer {session_token}",
@@ -1799,6 +1854,68 @@ class TestMultiPlatformAutoApply(unittest.TestCase):
         finally:
             server.shutdown()
             server.server_close()
+            bot.save_config(orig_cfg)
+
+    def test_blacklist_alabuga_and_stop_list(self):
+        from career_hub.controllers.scrapers import quick_prefilter_reject
+        from career_hub.controllers.auto_apply import apply_vacancy_dispatcher
+
+        # Test prefilter stops for Alabuga variations
+        self.assertTrue(quick_prefilter_reject("Java Backend Developer", "", "Алабуга, ОЭЗ ППТ"))
+        self.assertTrue(quick_prefilter_reject("Backend Python Developer", "", "ОЭЗ ППТ Алабуга"))
+        self.assertTrue(quick_prefilter_reject("Junior Java", "", "Alabuga"))
+        self.assertTrue(quick_prefilter_reject("Java Developer Алабуга", "", "IT Company"))
+
+        # Test dispatcher refuses blacklisted company
+        res = apply_vacancy_dispatcher({"id": "hh_999", "company": "Алабуга, ОЭЗ ППТ", "source": "hh"}, "Letter")
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["status"], "blacklisted")
+
+    def test_normalize_company_title_key(self):
+        from career_hub.models.vacancy import normalize_company_title_key
+
+        k1 = normalize_company_title_key("Сенла", "Junior Java Developer")
+        k2 = normalize_company_title_key("ООО «Сенла»", "Требуется «Junior Java Developer»")
+        k3 = normalize_company_title_key("ЗАО Сенла", "junior java developer")
+        self.assertEqual(k1, "сенла::junior java developer")
+        self.assertEqual(k1, k2)
+        self.assertEqual(k1, k3)
+
+        k_diff = normalize_company_title_key("Сенла", "Junior Python Developer")
+        self.assertNotEqual(k1, k_diff)
+        self.assertEqual(k_diff, "сенла::junior python developer")
+
+    def test_clone_vacancy_cycle_deduplication(self):
+        from career_hub.models.vacancy import normalize_company_title_key
+
+        clones = [
+            {"id": "hh_138698635", "company": "Сенла", "title": "Junior Java Developer", "source": "hh"},
+            {"id": "hh_138698585", "company": "ООО Сенла", "title": "Junior Java Developer", "source": "hh"},
+            {"id": "hh_138698703", "company": "Сенла", "title": "Junior Java Developer", "source": "hh"},
+        ]
+
+        seen_vacancies = {}
+        all_candidates = []
+        _seen_in_cycle = set()
+        _seen_comp_title_in_cycle = set()
+        recent_applied_comp_titles = set()
+
+        for cand in clones:
+            cand_id = cand["id"]
+            if cand_id in seen_vacancies or cand_id in _seen_in_cycle:
+                continue
+            key = normalize_company_title_key(cand.get("company", ""), cand.get("title", ""))
+            if key in _seen_comp_title_in_cycle or key in recent_applied_comp_titles:
+                seen_vacancies[cand_id] = 1
+                continue
+            _seen_comp_title_in_cycle.add(key)
+            _seen_in_cycle.add(cand_id)
+            all_candidates.append(cand)
+
+        self.assertEqual(len(all_candidates), 1)
+        self.assertEqual(all_candidates[0]["id"], "hh_138698635")
+        self.assertIn("hh_138698585", seen_vacancies)
+        self.assertIn("hh_138698703", seen_vacancies)
 
 
 if __name__ == "__main__":

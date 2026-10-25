@@ -8,11 +8,13 @@ import sys
 import re
 import json
 import time
+from datetime import datetime, timezone
 import logging
 import threading
 import requests
 
 from career_hub.models.config import load_config, save_config, safe_int
+from career_hub.models.vacancy import normalize_company_title_key
 from career_hub.models.storage import (
     load_seen_vacancies,
     seen_add,
@@ -503,13 +505,18 @@ def telegram_updates_worker():
                             statuses = _get_bot_ref("load_statuses", load_statuses)()
                             applied_count = sum(1 for s in statuses.values() if s.get("status") == "applied")
 
+                            resume_tunnel = cfg.get("resume_quick_tunnel_url") or "https://south-tomato-therapist-minimum.trycloudflare.com/"
+                            portfolio_site = cfg.get("portfolio_url") or "https://park.shadowkek.space"
+
                             text = (
                                 f"⚙️ <b>Центр управления Career Assistant</b>\n\n"
                                 f"🔔 <b>Уведомления в Telegram:</b> Только топ ({notify_score}-10/10)\n"
                                 f"   <i>(вакансии со скором 6-{notify_score-1} тихо сохраняются в Mini App)</i>\n\n"
                                 f"🤖 <b>Авто-отклики:</b> {'🟢 Включены' if auto_on else '🔴 Выключены'}\n"
                                 f"   • Порог авто-отклика: <b>{auto_score}+ баллов</b>\n"
-                                f"   • Генерация писем: <b>Groq AI</b>\n\n"
+                                f"   • Генерация писем: <b>Groq AI</b>\n"
+                                f"   • Портфолио/Резюме: <code>{resume_tunnel}</code>\n"
+                                f"   • Пет-проект (деплой): <code>{portfolio_site}</code>\n\n"
                                 f"🔌 <b>Интеграции:</b>\n"
                                 f"   • HeadHunter API: {'🟢 Подключён' if hh_tok else '⚪ Без токена (авто-подготовка в 1 клик)'}\n"
                                 f"   • Хабр / СЕТИ / SuperJob / LinkedIn: 🟢 Активны\n\n"
@@ -519,6 +526,7 @@ def telegram_updates_worker():
                                 f"<i>Команды для быстрой настройки:</i>\n"
                                 f"• <code>/notify_score 8</code> или <code>9</code> — порог уведомлений\n"
                                 f"• <code>/auto_apply on</code> / <code>off</code> — режим авто-отклика\n"
+                                f"• <code>/set_resume_url &lt;url&gt;</code> — обновить ссылку резюме/портфолио\n"
                                 f"• <code>/set_hh_token &lt;токен&gt;</code> — привязать HeadHunter\n"
                                 f"• <code>/digest</code> — сводка за 24ч"
                             )
@@ -752,6 +760,34 @@ def telegram_updates_worker():
                             send_msg_fn(token, msg_chat_id, "✅ HeadHunter access token сохранён!")
                             continue
 
+                        if msg_text.startswith("/set_resume_url"):
+                            parts = msg_text.split(maxsplit=1)
+                            if len(parts) < 2 or not parts[1].strip():
+                                send_msg_fn(token, msg_chat_id, "ℹ️ Использование: <code>/set_resume_url &lt;url_онлайн_резюме&gt;</code>")
+                                continue
+                            new_url = parts[1].strip().strip('"').strip("'")
+                            if not new_url.startswith("http://") and not new_url.startswith("https://"):
+                                new_url = "https://" + new_url
+                            cfg = cfg_fn()
+                            cfg["resume_quick_tunnel_url"] = new_url
+                            save_cfg_fn(cfg)
+                            send_msg_fn(token, msg_chat_id, f"✅ Ссылка на онлайн-резюме/портфолио (.trycloudflare.com) сохранена:\n<code>{new_url}</code>")
+                            continue
+
+                        if msg_text.startswith("/set_portfolio_url"):
+                            parts = msg_text.split(maxsplit=1)
+                            if len(parts) < 2 or not parts[1].strip():
+                                send_msg_fn(token, msg_chat_id, "ℹ️ Использование: <code>/set_portfolio_url &lt;url_деплоя_проекта&gt;</code>")
+                                continue
+                            new_url = parts[1].strip().strip('"').strip("'")
+                            if not new_url.startswith("http://") and not new_url.startswith("https://"):
+                                new_url = "https://" + new_url
+                            cfg = cfg_fn()
+                            cfg["portfolio_url"] = new_url
+                            save_cfg_fn(cfg)
+                            send_msg_fn(token, msg_chat_id, f"✅ Ссылка на сайт/деплой пет-проекта сохранена:\n<code>{new_url}</code>")
+                            continue
+
                         if msg_text in ["/digest", "/summary"]:
                             cache = _get_bot_ref("load_cache", load_cache)()
                             statuses = _get_bot_ref("load_statuses", load_statuses)()
@@ -790,10 +826,15 @@ def telegram_updates_worker():
 
                             hh_status = "🟢 Веб-сессия активна" if hh_cookie else ("🟢 API подключён" if hh_tok else "⚪ Не подключён")
 
+                            resume_tunnel = cfg.get("resume_quick_tunnel_url") or "https://south-tomato-therapist-minimum.trycloudflare.com/"
+                            portfolio_site = cfg.get("portfolio_url") or "https://park.shadowkek.space"
+
                             welcome_text = (
                                 f"👋 <b>Добро пожаловать в Career Hub Bot!</b>\n\n"
                                 f"🤖 <b>Авто-отклики:</b> {'🟢 Включены' if auto_on else '🔴 Выключены'} (порог: {auto_score}+)\n"
                                 f"🔔 <b>Уведомления в чат:</b> Только топ ({notify_score}-10/10)\n"
+                                f"📄 <b>Портфолио/Резюме:</b> <code>{resume_tunnel}</code>\n"
+                                f"🌐 <b>Пет-проект (деплой):</b> <code>{portfolio_site}</code>\n"
                                 f"🔌 <b>HeadHunter:</b> {hh_status}\n\n"
                                 f"📊 <b>База вакансий:</b> {len(cache)} сохранено | {applied_count} откликов\n\n"
                                 f"👇 Нажмите кнопку ниже, чтобы открыть веб-интерфейс:"
@@ -846,6 +887,9 @@ def vacancy_monitor_worker():
     seen_add_fn = _get_bot_ref("seen_add", seen_add)
     delete_cache_fn = _get_bot_ref("delete_from_cache", delete_from_cache)
     save_cache_fn = _get_bot_ref("save_to_cache", save_to_cache)
+    load_cache_fn = _get_bot_ref("load_cache", load_cache)
+    load_statuses_fn = _get_bot_ref("load_statuses", load_statuses)
+    norm_key_fn = _get_bot_ref("normalize_company_title_key", normalize_company_title_key)
     prefilter_fn = _get_bot_ref("quick_prefilter_reject", quick_prefilter_reject)
     ai_analyze_fn = _get_bot_ref("analyze_vacancy_with_groq", analyze_vacancy_with_groq)
     process_apply_fn = _get_bot_ref("process_vacancy_auto_apply_and_notify", process_vacancy_auto_apply_and_notify)
@@ -857,6 +901,10 @@ def vacancy_monitor_worker():
     logger.info(f"Загружено {len(seen_vacancies)} ранее сохраненных вакансий.")
 
     while True:
+        if len(seen_vacancies) > 5000:
+            sorted_items = sorted(seen_vacancies.items(), key=lambda x: x[1], reverse=True)[:4000]
+            seen_vacancies.clear()
+            seen_vacancies.update(sorted_items)
         logger.info("Начало цикла сбора вакансий со всех подключенных платформ...")
         config = cfg_fn()
         token = config.get("bot_token", "")
@@ -867,6 +915,35 @@ def vacancy_monitor_worker():
         interval = config.get("check_interval_seconds", 600)
         max_analyses = config.get("max_ai_analyses_per_cycle", 35)
         ai_delay = config.get("ai_delay_seconds", 2.8)
+
+        # Собираем список нормализованных пар (компания, должность), по которым недавно (последние 14 дней) уже был подан отклик
+        recent_applied_comp_titles = set()
+        try:
+            cur_cache = load_cache_fn()
+            cur_statuses = load_statuses_fn()
+            now_dt = datetime.now(timezone.utc)
+            for s_id, s_info in cur_statuses.items():
+                if not isinstance(s_info, dict):
+                    continue
+                if s_info.get("status") in ("applied", "interview", "offered"):
+                    applied_at_str = s_info.get("applied_at") or s_info.get("updated_at")
+                    is_recent = True
+                    if applied_at_str:
+                        try:
+                            dt = datetime.fromisoformat(applied_at_str.replace("Z", "+00:00"))
+                            if (now_dt - dt).total_seconds() > 14 * 86400:
+                                is_recent = False
+                        except Exception:
+                            pass
+                    if is_recent:
+                        comp = s_info.get("company") or cur_cache.get(s_id, {}).get("company", "")
+                        tit = s_info.get("title") or cur_cache.get(s_id, {}).get("title", "")
+                        if comp and tit:
+                            k = norm_key_fn(comp, tit)
+                            if k and k != "::":
+                                recent_applied_comp_titles.add(k)
+        except Exception as e:
+            logger.warning(f"Ошибка сбора недавних откликов для дедупликации: {e}")
 
         if not chat_id:
             logger.info("Мониторинг вакансий: ожидание первого старта диалога от владельца (/start в боте Telegram)...")
@@ -963,20 +1040,58 @@ def vacancy_monitor_worker():
 
         logger.info(f"Собрано сырых вакансий: HH={len(by_source['hh'])}, GetMatch={len(by_source['getmatch'])}, Habr={len(by_source['habr'])}, СЕТИ={len(by_source['vseti'])}, Remotive={len(by_source['remotive'])}, SuperJob={len(by_source['superjob'])}, LinkedIn={len(by_source['linkedin'])}, TG={len(by_source['telegram'])}, Работа={len(by_source['rabota'])}, ТрудВсем={len(by_source['trudvsem'])}")
 
-        # Round-Robin чередование
+        # Round-Robin чередование с дедупликацией внутри цикла и отсевом дубликатов/клонов работодателей
         all_candidates = []
+        _seen_in_cycle: set = set()
+        _seen_comp_title_in_cycle: set = set()
         max_len = max((len(lst) for lst in by_source.values()), default=0)
         for i in range(max_len):
             for src_name in ["hh", "getmatch", "habr", "vseti", "remotive", "superjob", "linkedin", "telegram", "rabota", "trudvsem"]:
                 if i < len(by_source[src_name]):
-                    all_candidates.append(by_source[src_name][i])
+                    cand = by_source[src_name][i]
+                    cand_id = cand.get("id")
+                    if not cand_id:
+                        continue
+                    if cand_id in seen_vacancies or cand_id in _seen_in_cycle:
+                        continue
 
-        logger.info(f"Сформирована очередь из {len(all_candidates)} вакансий с чередованием источников.")
+                    # Проверка на дубликаты / клоны вакансий (одинаковая компания и должность)
+                    cand_comp = cand.get("company", "")
+                    cand_title = cand.get("title", "")
+                    comp_title_key = norm_key_fn(cand_comp, cand_title)
 
+                    if comp_title_key and comp_title_key != "::":
+                        if comp_title_key in _seen_comp_title_in_cycle:
+                            seen_add_fn(seen_vacancies, cand_id)
+                            logger.info(f"Пропуск дубликата/клона вакансии {cand_id} ({cand_title} @ {cand_comp}): уже обрабатывается в текущем цикле.")
+                            continue
+                        if comp_title_key in recent_applied_comp_titles:
+                            seen_add_fn(seen_vacancies, cand_id)
+                            logger.info(f"Пропуск вакансии-клона {cand_id} ({cand_title} @ {cand_comp}): отклик на эту позицию уже был отправлен ранее.")
+                            continue
+                        _seen_comp_title_in_cycle.add(comp_title_key)
+
+                    _seen_in_cycle.add(cand_id)
+                    all_candidates.append(cand)
+
+        logger.info(f"Сформирована очередь из {len(all_candidates)} уникальных вакансий с чередованием источников.")
+
+        _processed_comp_titles: set = set()
         for v in all_candidates:
             v_id = v["id"]
             if v_id in seen_vacancies:
                 continue
+
+            v_comp = v.get("company", "")
+            v_title = v.get("title", "")
+            v_key = norm_key_fn(v_comp, v_title)
+            if v_key and v_key != "::":
+                if v_key in _processed_comp_titles or v_key in recent_applied_comp_titles:
+                    seen_add_fn(seen_vacancies, v_id)
+                    save_seen_fn(seen_vacancies)
+                    logger.info(f"Пропуск дубликата/клона {v_id} ({v_title} @ {v_comp}) - позиция уже обработана ранее.")
+                    continue
+                _processed_comp_titles.add(v_key)
 
             # Быстрый отсев
             if prefilter_fn(v["title"], v.get("description", ""), v.get("company", "")):
@@ -1026,6 +1141,7 @@ def vacancy_monitor_worker():
             # Повторный отсев
             if prefilter_fn(v["title"], v.get("description", ""), v.get("company", "")):
                 seen_add_fn(seen_vacancies, v_id)
+                save_seen_fn(seen_vacancies)
                 delete_cache_fn(v_id)
                 continue
 
@@ -1045,6 +1161,9 @@ def vacancy_monitor_worker():
                 continue
 
             seen_add_fn(seen_vacancies, v_id)
+            # Сохраняем seen сразу после добавления — предотвращает повторную обработку
+            # при перезапуске бота или при сбое в середине цикла
+            save_seen_fn(seen_vacancies)
 
             score = analysis.get("match_score", 0)
             is_suitable = analysis.get("suitable", False)
@@ -1065,6 +1184,8 @@ def vacancy_monitor_worker():
                     groq_key=groq_key,
                     groq_model=groq_model
                 )
+                if v_key and v_key != "::":
+                    recent_applied_comp_titles.add(v_key)
                 if notified:
                     sent_count += 1
                     time.sleep(2)

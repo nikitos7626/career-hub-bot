@@ -323,3 +323,19 @@ def normalize_vacancy_for_api(v: dict, statuses: dict) -> dict | None:
         "auto_applied": status_info.get("auto_applied", False),
         "auto_prepared": status_info.get("auto_prepared", False)
     }
+
+
+def normalize_company_title_key(company: str, title: str) -> str:
+    """
+    Нормализует пару (компания, заголовок) для выявления вакансий-клонов (дубликатов от одного работодателя).
+    Например: "Сенла" и "Junior Java Developer" -> "сенла::junior java developer".
+    """
+    c = (company or "").lower().strip()
+    c = re.sub(r'^(ооо|зао|пао|ао|ип)\s+', '', c)
+    c = re.sub(r'[«»""\',.]', '', c).strip()
+
+    t = (title or "").lower().strip()
+    t = t.replace("требуется «", "").replace("»", "")
+    t = re.sub(r'[«»""\',.]', '', t)
+    t = re.sub(r'\s+', ' ', t).strip()
+    return f"{c}::{t}"

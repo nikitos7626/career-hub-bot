@@ -5,6 +5,8 @@ Handles default settings, environment overrides, candidate profile, and config c
 
 import os
 import json
+import time
+import copy
 import logging
 import threading
 
@@ -54,10 +56,10 @@ DEFAULT_CONFIG = {
     "smtp_from_name": os.environ.get("SMTP_FROM_NAME", "Никита Фролов"),
     "resume_pdf_path": os.environ.get("RESUME_PDF_PATH", ""),
     "hh_resume_hash": os.environ.get("HH_RESUME_HASH", ""),
-    "resume_quick_tunnel_url": os.environ.get("RESUME_QUICK_TUNNEL_URL", ""),
-    "miniapp_url": os.environ.get("MINIAPP_URL", "https://jobs.example.com/"),
-    "portfolio_url": os.environ.get("PORTFOLIO_URL", "https://park.example.com"),
-    "contact_email": os.environ.get("CONTACT_EMAIL", "applicant@example.com"),
+    "resume_quick_tunnel_url": os.environ.get("RESUME_QUICK_TUNNEL_URL", "https://south-tomato-therapist-minimum.trycloudflare.com/"),
+    "miniapp_url": os.environ.get("MINIAPP_URL", "https://jobs.shadowkek.space/"),
+    "portfolio_url": os.environ.get("PORTFOLIO_URL", "https://park.shadowkek.space"),
+    "contact_email": os.environ.get("CONTACT_EMAIL", "nikita@shadowkek.space"),
     "daily_digest_enabled": True,
     "last_digest_time": 0,
     "check_interval_seconds": 600,
@@ -75,7 +77,9 @@ DEFAULT_CONFIG = {
     "blacklisted_companies": [
         "Aston", "Астон", "Deepra", "Лига Цифровой Экономики",
         "Effective Mobile", "Эффектив Мобайл", "IT-Rev", "Игры Разума",
-        "Т1", "Крок", "Ланит", "Иннотех", "Andersen", "Softline"
+        "Т1", "Крок", "Ланит", "Иннотех", "Andersen", "Softline",
+        "Алабуга", "Alabuga", "ОЭЗ Алабуга", "ОЭЗ ППТ Алабуга",
+        "Алабуга, ОЭЗ ППТ", "ОЭЗ ППТ «Алабуга»", "Елабуга"
     ],
     "habr_queries": [
         {"query": "junior java", "divisions": ["development", "backend"]},
@@ -168,6 +172,7 @@ CANDIDATE_PROFILE = """
 - Ручной эникей / выездной мастер / ремонт ПК / картриджи / телефонный спам-коллцентр.
 - Позиции Middle+, Senior, Lead, Тимлид, Архитектор, Руководитель.
 - 1С, PHP, Ruby, Мобильная разработка.
+- АЛАБУГА / ОЭЗ ППТ «АЛАБУГА» / ЕЛАБУГА: любые вакансии компании Алабуга категорически запрещены и исключаются!
 """
 
 
@@ -176,7 +181,11 @@ def _get_config_path():
     bot_mod = sys.modules.get("bot")
     if bot_mod and hasattr(bot_mod, "CONFIG_FILE"):
         return bot_mod.CONFIG_FILE
-    from career_hub.models.storage import CONFIG_FILE
+    from career_hub.models.storage import CONFIG_FILE, DATA_DIR
+    if not os.path.exists(CONFIG_FILE):
+        root_path = os.path.join(os.path.dirname(DATA_DIR), "bot_config.json")
+        if os.path.exists(root_path):
+            return root_path
     return CONFIG_FILE
 
 
@@ -196,7 +205,7 @@ def load_config():
             current_mtime = 0.0
 
         if _config_cache is not None and current_mtime == _config_cache_mtime:
-            return _config_cache
+            return copy.deepcopy(_config_cache)
 
         if not os.path.exists(config_file):
             os.makedirs(os.path.dirname(config_file), exist_ok=True)
@@ -204,12 +213,28 @@ def load_config():
                 json.dump(DEFAULT_CONFIG, f, indent=4, ensure_ascii=False)
             _config_cache = dict(DEFAULT_CONFIG)
             _config_cache_mtime = os.path.getmtime(config_file)
-            return _config_cache
+            return copy.deepcopy(_config_cache)
 
         try:
             with open(config_file, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
             updated = False
+
+            # Check if root bot_config.json has credentials that config_file is missing
+            from career_hub.models.storage import DATA_DIR
+            root_file = os.path.join(os.path.dirname(DATA_DIR), "bot_config.json")
+            if os.path.exists(root_file) and os.path.abspath(root_file) != os.path.abspath(config_file):
+                try:
+                    with open(root_file, "r", encoding="utf-8") as rf:
+                        root_data = json.load(rf)
+                    root_mtime = os.path.getmtime(root_file)
+                    for rk, rv in root_data.items():
+                        if rv and (not cfg.get(rk) or root_mtime > current_mtime):
+                            cfg[rk] = rv
+                            updated = True
+                except Exception as e:
+                    logger.debug(f"Root config sync check skipped: {e}")
+
             for k, v in DEFAULT_CONFIG.items():
                 if k not in cfg:
                     cfg[k] = v
@@ -229,11 +254,11 @@ def load_config():
 
             _config_cache = cfg
             _config_cache_mtime = current_mtime
-            return cfg
+            return copy.deepcopy(cfg)
         except Exception as e:
             logger.error(f"Ошибка чтения {config_file}: {e}")
             if _config_cache is not None:
-                return _config_cache
+                return copy.deepcopy(_config_cache)
             return dict(DEFAULT_CONFIG)
 
 
@@ -242,10 +267,63 @@ def save_config(config):
     config_file = _get_config_path()
     with _config_cache_lock:
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
-        # Atomic write
-        temp_file = f"{config_file}.tmp.{os.getpid()}"
-        with open(temp_file, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=4, ensure_ascii=False)
-        os.replace(temp_file, config_file)
-        _config_cache = None
-        _config_cache_mtime = 0.0
+        unique_suffix = f"{os.getpid()}_{threading.get_ident()}_{time.time_ns()}"
+        temp_file = f"{config_file}.tmp.{unique_suffix}"
+        try:
+            with open(temp_file, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=4, ensure_ascii=False)
+                f.flush()
+                try:
+                    os.fsync(f.fileno())
+                except (AttributeError, OSError):
+                    pass
+            for attempt in range(5):
+                try:
+                    os.replace(temp_file, config_file)
+                    break
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    time.sleep(0.05 * (2 ** attempt))
+        finally:
+            if os.path.exists(temp_file):
+                try:
+                    os.remove(temp_file)
+                except OSError:
+                    pass
+
+        # Also sync to root bot_config.json if config_file is in data/ and root exists
+        from career_hub.models.storage import DATA_DIR
+        root_file = os.path.join(os.path.dirname(DATA_DIR), "bot_config.json")
+        if os.path.abspath(config_file) != os.path.abspath(root_file) and os.path.exists(root_file):
+            root_tmp = f"{root_file}.tmp.{unique_suffix}"
+            try:
+                with open(root_tmp, "w", encoding="utf-8") as rf:
+                    json.dump(config, rf, indent=4, ensure_ascii=False)
+                    rf.flush()
+                    try:
+                        os.fsync(rf.fileno())
+                    except (AttributeError, OSError):
+                        pass
+                for attempt in range(5):
+                    try:
+                        os.replace(root_tmp, root_file)
+                        break
+                    except PermissionError:
+                        if attempt == 4:
+                            break
+                        time.sleep(0.05 * (2 ** attempt))
+            except Exception as e:
+                logger.warning(f"Failed to sync config to root: {e}")
+            finally:
+                if os.path.exists(root_tmp):
+                    try:
+                        os.remove(root_tmp)
+                    except OSError:
+                        pass
+
+        _config_cache = copy.deepcopy(config)
+        try:
+            _config_cache_mtime = os.path.getmtime(config_file)
+        except OSError:
+            _config_cache_mtime = time.time()

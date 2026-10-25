@@ -27,9 +27,24 @@ def fetch_hh_vacancies(query: str, experience: str = "noExperience", max_pages: 
         try:
             resp = requests.get(url, headers=HTTP_HEADERS, timeout=12)
             if resp.status_code == 200:
-                templates = re.findall(r'<template[^>]*>(.*?)</template>', resp.text, re.DOTALL)
-                if templates:
-                    data = json.loads(html.unescape(templates[0]))
+                data = {}
+                m_state = re.search(r'<template[^>]*id="HH-Lux-InitialState"[^>]*>(.*?)</template>', resp.text, re.DOTALL)
+                if m_state:
+                    try:
+                        data = json.loads(html.unescape(m_state.group(1)))
+                    except Exception:
+                        pass
+                if not data:
+                    templates = re.findall(r'<template[^>]*>(.*?)</template>', resp.text, re.DOTALL)
+                    for t in templates:
+                        try:
+                            parsed = json.loads(html.unescape(t))
+                            if isinstance(parsed, dict) and "vacancySearchResult" in parsed:
+                                data = parsed
+                                break
+                        except Exception:
+                            continue
+                if data:
                     vacancies = data.get("vacancySearchResult", {}).get("vacancies", [])
                     if not vacancies:
                         break
@@ -82,9 +97,24 @@ def fetch_hh_vacancy_full(raw_id: str) -> dict | None:
     try:
         resp = requests.get(url, headers=HTTP_HEADERS, timeout=12)
         if resp.status_code == 200:
-            templates = re.findall(r'<template[^>]*>(.*?)</template>', resp.text, re.DOTALL)
-            if templates:
-                data = json.loads(html.unescape(templates[0]))
+            data = {}
+            m_state = re.search(r'<template[^>]*id="HH-Lux-InitialState"[^>]*>(.*?)</template>', resp.text, re.DOTALL)
+            if m_state:
+                try:
+                    data = json.loads(html.unescape(m_state.group(1)))
+                except Exception:
+                    pass
+            if not data:
+                templates = re.findall(r'<template[^>]*>(.*?)</template>', resp.text, re.DOTALL)
+                for t in templates:
+                    try:
+                        parsed = json.loads(html.unescape(t))
+                        if isinstance(parsed, dict) and "vacancyView" in parsed:
+                            data = parsed
+                            break
+                    except Exception:
+                        continue
+            if data:
                 full = data.get("vacancyView", {}).get("vacancyFull", {}).get("vacancy", {})
                 if full:
                     clean_desc = clean_html(full.get("description", ""))

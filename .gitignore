@@ -24,8 +24,11 @@ live_api_response.json
 
 # Codebase memory & logs
 .codebase-memory/
+.claude/
+.mcp.json
 *.log
 scratch/
+**/.tempmediaStorage/
 
 # Temporary / diagnostic scratch scripts
 scripts/apply_backlog.py
@@ -46,3 +49,5 @@ scripts/test_calibrated_prompt.py
 scripts/test_delete_negotiation.py
 scripts/test_hh_auth.py
 scripts/update_vps_*.py
+
+test_data_*/

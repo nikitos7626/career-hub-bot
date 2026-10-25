@@ -115,8 +115,30 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
         if origin:
             try:
                 parsed_orig = urlparse(origin)
-                hostname = parsed_orig.hostname or ""
-                if hostname in ["localhost", "127.0.0.1"] or hostname.endswith(".telegram.org") or hostname == "telegram.org" or (host and hostname in host):
+                hostname = (parsed_orig.hostname or "").lower()
+                host_domain = (host.split(":")[0] if host else "").lower()
+
+                cfg_fn = _get_bot_ref("load_config", None)
+                miniapp_host = ""
+                if cfg_fn:
+                    try:
+                        cfg_url = cfg_fn().get("miniapp_url") or os.environ.get("MINIAPP_URL") or ""
+                        if cfg_url:
+                            miniapp_host = (urlparse(cfg_url).hostname or "").lower()
+                    except Exception:
+                        pass
+
+                allowed_hosts = {"localhost", "127.0.0.1"}
+                if host_domain:
+                    allowed_hosts.add(host_domain)
+                if miniapp_host:
+                    allowed_hosts.add(miniapp_host)
+
+                if (
+                    hostname in allowed_hosts
+                    or hostname == "telegram.org"
+                    or hostname.endswith(".telegram.org")
+                ):
                     allowed = origin
             except Exception:
                 pass
@@ -126,7 +148,7 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Credentials", "true")
             self.send_header("Vary", "Origin")
         else:
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Origin", "null")
 
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -444,7 +466,9 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 "smtp_port": cfg.get("smtp_port", 465),
                 "smtp_user": smtp_user,
                 "smtp_from_name": cfg.get("smtp_from_name", "Никита Фролов"),
-                "contact_email": cfg.get("contact_email", "applicant@example.com"),
+                "contact_email": cfg.get("contact_email", "nikita@shadowkek.space"),
+                "resume_quick_tunnel_url": cfg.get("resume_quick_tunnel_url", "https://south-tomato-therapist-minimum.trycloudflare.com/"),
+                "portfolio_url": cfg.get("portfolio_url", "https://park.shadowkek.space"),
                 "total_vacancies": len(cache),
                 "total_applied": applied_count
             }
@@ -478,7 +502,11 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
 
-        content_length = int(self.headers.get("Content-Length", 0))
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            content_length = 0
+
         if content_length > 1024 * 1024:
             self.send_response(413)
             self._send_cors_headers()
@@ -512,7 +540,18 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 return
 
             uid = safe_int(user_info.get("id"))
-            if allowed_id and uid != allowed_id:
+            if not allowed_id:
+                logger.warning(f"Попытка входа через WebApp до инициализации владельца: UID {uid}")
+                self.send_response(403)
+                self._send_cors_headers()
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "ok": False,
+                    "error": "Бот не инициализирован. Выполните команду /start в Telegram с аккаунта владельца."
+                }).encode("utf-8"))
+                return
+            elif uid != allowed_id:
                 logger.warning(f"Попытка входа с чужим Telegram ID: {uid} (ожидался {allowed_id})")
                 self.send_response(403)
                 self._send_cors_headers()
@@ -520,17 +559,12 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"ok": False, "error": "Доступ разрешён только владельцу бота."}).encode("utf-8"))
                 return
-            elif not allowed_id and uid:
-                config["allowed_telegram_id"] = uid
-                save_cfg_fn = _get_bot_ref("save_config", save_config)
-                save_cfg_fn(config)
-                logger.info(f"Владелец бота успешно зарегистрирован через Mini App: ID {uid}")
 
             create_sess_fn = _get_bot_ref("create_user_session", create_user_session)
             token, exp = create_sess_fn(uid, device="Telegram Mini App", days=30)
             self.send_response(200)
             self._send_cors_headers()
-            self.send_header("Set-Cookie", f"career_hub_token={token}; Max-Age=2592000; Path=/; SameSite=Lax; Secure")
+            self.send_header("Set-Cookie", f"career_hub_token={token}; Max-Age=2592000; Path=/; SameSite=Lax; Secure; HttpOnly")
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.end_headers()
             self.wfile.write(json.dumps({
@@ -561,7 +595,7 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
             perm_token, exp = create_sess_fn(uid, device="Browser Magic Link", days=30)
             self.send_response(200)
             self._send_cors_headers()
-            self.send_header("Set-Cookie", f"career_hub_token={perm_token}; Max-Age=2592000; Path=/; SameSite=Lax; Secure")
+            self.send_header("Set-Cookie", f"career_hub_token={perm_token}; Max-Age=2592000; Path=/; SameSite=Lax; Secure; HttpOnly")
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.end_headers()
             self.wfile.write(json.dumps({
@@ -824,8 +858,17 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 cfg["smtp_from_name"] = (data.get("smtp_from_name") or "").strip()
             if "contact_email" in data:
                 cfg["contact_email"] = (data.get("contact_email") or "").strip()
+            if "resume_quick_tunnel_url" in data:
+                cfg["resume_quick_tunnel_url"] = (data.get("resume_quick_tunnel_url") or "").strip()
+            if "portfolio_url" in data:
+                cfg["portfolio_url"] = (data.get("portfolio_url") or "").strip()
             if "resume_pdf_path" in data:
-                cfg["resume_pdf_path"] = (data.get("resume_pdf_path") or "").strip()
+                raw_path = (data.get("resume_pdf_path") or "").strip()
+                if raw_path:
+                    if ".." not in raw_path and raw_path.lower().endswith(".pdf"):
+                        cfg["resume_pdf_path"] = raw_path
+                else:
+                    cfg["resume_pdf_path"] = ""
 
             if "auto_apply_enabled" in data:
                 cfg["auto_apply_enabled"] = bool(data["auto_apply_enabled"])

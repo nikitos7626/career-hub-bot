@@ -90,7 +90,7 @@ def analyze_vacancy_with_groq(api_key: str, model: str, title: str, company: str
 """
 
     models_to_try = [model]
-    for fallback in ["llama-3.1-8b-instant", "qwen-2.5-32b"]:
+    for fallback in ["llama-3.1-8b-instant", "gemma2-9b-it", "mixtral-8x7b-32768"]:
         if fallback not in models_to_try:
             models_to_try.append(fallback)
 
@@ -167,14 +167,14 @@ def get_portfolio_url() -> str:
     bot_mod = sys.modules.get("bot") or sys.modules.get("__main__")
     if bot_mod and hasattr(bot_mod, "load_config"):
         try:
-            return bot_mod.load_config().get("portfolio_url") or os.environ.get("PORTFOLIO_URL") or "https://park.example.com"
+            return bot_mod.load_config().get("portfolio_url") or os.environ.get("PORTFOLIO_URL") or "https://park.shadowkek.space"
         except Exception:
             pass
     try:
         from career_hub.models.config import load_config
-        return load_config().get("portfolio_url") or os.environ.get("PORTFOLIO_URL") or "https://park.example.com"
+        return load_config().get("portfolio_url") or os.environ.get("PORTFOLIO_URL") or "https://park.shadowkek.space"
     except Exception:
-        return os.environ.get("PORTFOLIO_URL") or "https://park.example.com"
+        return os.environ.get("PORTFOLIO_URL") or "https://park.shadowkek.space"
 
 
 def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
@@ -372,7 +372,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
 """
 
     models_to_try = [model]
-    for fallback in ["llama-3.1-8b-instant", "qwen-2.5-32b"]:
+    for fallback in ["llama-3.1-8b-instant", "gemma2-9b-it", "mixtral-8x7b-32768"]:
         if fallback not in models_to_try:
             models_to_try.append(fallback)
 
