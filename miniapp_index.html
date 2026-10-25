@@ -112,30 +112,20 @@
     }
   </style>
 </head>
-<body class="min-h-screen pb-20 select-none bg-slate-950 text-slate-100">
+<body class="h-[100dvh] max-h-[100dvh] overflow-hidden select-none bg-slate-950 text-slate-100 flex flex-col justify-between">
   <!-- Main App Container (Hidden until authenticated) -->
-  <div id="app" style="display: none !important;" class="hidden max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+  <div id="app" style="display: none !important;" class="hidden w-full max-w-md sm:max-w-xl lg:max-w-4xl xl:max-w-6xl mx-auto px-3 sm:px-6 pt-2 h-[100dvh] max-h-[100dvh] flex flex-col justify-between overflow-hidden">
 
-    <!-- Header & Profile (Wide Responsive Bar) -->
-    <header class="flex items-center justify-between pb-3 sm:pb-5 border-b border-slate-800/80 gap-2">
-      <!-- Left brand & profile -->
-      <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
-        <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-md shadow-indigo-500/20 flex-shrink-0">
-          <i data-lucide="compass" class="w-5 h-5 sm:w-6 sm:h-6 text-white"></i>
+    <!-- Header (Compact Single Row, h-11) -->
+    <header class="flex items-center justify-between pb-2 border-b border-slate-800/80 gap-2 h-11 flex-shrink-0">
+      <!-- Left: Brand & Counter Badge -->
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-md shadow-indigo-500/20 flex-shrink-0">
+          <i data-lucide="compass" class="w-4 h-4 text-white"></i>
         </div>
-        <div class="min-w-0">
-          <div class="flex items-center gap-1.5 flex-nowrap">
-            <h1 class="text-sm sm:text-lg font-bold text-white tracking-tight whitespace-nowrap">
-              Career Hub
-            </h1>
-            <span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-semibold uppercase border border-indigo-500/30 flex-shrink-0">
-              AI
-            </span>
-            <span class="hidden md:inline-flex text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-slate-800/90 text-slate-300 font-medium border border-slate-700/80 flex-shrink-0">
-              Smart Copilot
-            </span>
-          </div>
-          <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5 truncate" id="candidateName">Карьерный AI-ассистент</p>
+        <div class="flex items-center gap-1.5 truncate">
+          <span class="text-sm font-bold text-white tracking-tight">Career Hub</span>
+          <span id="tinderCounterBadge" class="text-xs px-2 py-0.5 rounded-lg bg-slate-900 border border-slate-800 font-bold text-indigo-400">1 / 10</span>
         </div>
       </div>
 
@@ -143,98 +133,68 @@
       <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         <!-- View Mode Switcher -->
         <div class="flex items-center p-0.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold">
-          <button onclick="setViewMode('tinder')" id="btnModeTinder" title="Свайпы (Tinder)" class="px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition bg-indigo-600 text-white shadow-sm">
+          <button onclick="setViewMode('tinder')" id="btnModeTinder" title="Свайпы (Tinder)" class="px-2.5 py-1 rounded-lg flex items-center gap-1 transition bg-indigo-600 text-white shadow-sm cursor-pointer">
             <i data-lucide="flame" class="w-3.5 h-3.5 text-amber-300"></i>
-            <span class="hidden sm:inline">Свайп</span>
+            <span class="text-[11px]">Свайп</span>
           </button>
-          <button onclick="setViewMode('list')" id="btnModeList" title="Список (Канбан)" class="px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition text-slate-400 hover:text-white">
+          <button onclick="setViewMode('list')" id="btnModeList" title="Список (Канбан)" class="px-2.5 py-1 rounded-lg flex items-center gap-1 transition text-slate-400 hover:text-white cursor-pointer">
             <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
-            <span class="hidden sm:inline">Список</span>
+            <span class="text-[11px] hidden sm:inline">Список</span>
           </button>
         </div>
 
         <!-- Filter Button -->
-        <button onclick="openFiltersDrawer()" id="btnOpenFilters" title="Фильтры" class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-slate-900/90 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center gap-1.5 text-xs font-medium shadow-sm">
-          <i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-400"></i>
+        <button onclick="openFiltersDrawer()" id="btnOpenFilters" title="Фильтры" class="px-2.5 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center gap-1.5 text-xs font-medium shadow-sm cursor-pointer">
+          <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-indigo-400"></i>
           <span class="hidden sm:inline">Фильтры</span>
           <span id="activeFiltersBadge" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-500 text-white font-bold"></span>
         </button>
 
-        <button onclick="refreshData()" id="refreshBtn" title="Обновить ленту вакансий" class="w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-xl bg-slate-900/90 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs font-medium shadow-sm">
-          <i data-lucide="rotate-cw" class="w-4 h-4 text-slate-400" id="refreshIcon"></i>
-          <span class="hidden sm:inline">Обновить</span>
+        <button onclick="refreshData()" id="refreshBtn" title="Обновить ленту" class="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-white border border-slate-800 active:scale-95 transition flex items-center justify-center cursor-pointer">
+          <i data-lucide="rotate-cw" class="w-3.5 h-3.5" id="refreshIcon"></i>
         </button>
-        <button onclick="openSettingsModal()" id="settingsBtn" title="Настройки автоотклика и сессии HH" class="w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-xl bg-slate-900/90 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs font-medium shadow-sm">
-          <i data-lucide="settings" class="w-4 h-4 text-slate-400"></i>
-          <span class="hidden sm:inline">Настройки</span>
-        </button>
-        <div id="userProfileBadge" class="hidden flex items-center">
-          <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="font-medium text-slate-200">Профиль</span>
-            <button onclick="logout()" title="Выйти с этого устройства" class="ml-1 text-slate-400 hover:text-rose-400 p-0.5 rounded transition">
-              <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-          <button onclick="logout()" title="Выйти" class="md:hidden w-9 h-9 rounded-xl bg-slate-900/90 hover:bg-slate-850 text-slate-400 hover:text-rose-400 border border-slate-800 active:scale-95 transition flex items-center justify-center">
-            <i data-lucide="log-out" class="w-4 h-4"></i>
-          </button>
-        </div>
       </div>
     </header>
 
-    <!-- Tinder Swiper Deck View (Default on mobile) -->
-    <div id="tinderDeckWrapper" class="max-w-md sm:max-w-lg mx-auto w-full my-1 sm:my-3">
-      <!-- Deck Subheader (Card counter + Filter pill) -->
-      <div class="flex items-center justify-between mb-2.5 px-2 text-xs">
-        <div class="flex items-center gap-2">
-          <span class="font-bold text-white text-sm" id="tinderCounterText">Загрузка...</span>
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 font-semibold border border-indigo-500/30 flex items-center gap-1">
-            <i data-lucide="sparkles" class="w-3 h-3 text-indigo-400"></i> AI Match
-          </span>
-        </div>
-        <button onclick="openFiltersDrawer()" class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white flex items-center gap-1.5 transition text-xs shadow-sm cursor-pointer">
-          <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-indigo-400"></i>
-          <span id="activeFilterPill">Фильтры</span>
-        </button>
-      </div>
+    <!-- Tinder Swiper Deck View (Strict 100dvh, zero window overflow) -->
+    <div id="tinderDeckWrapper" class="flex-1 min-h-0 max-w-md sm:max-w-lg mx-auto w-full flex flex-col justify-between pt-1 pb-[calc(56px+max(8px,env(safe-area-inset-bottom,8px)))]">
 
-      <!-- The Cards Stack (Container for interactive cards) -->
-      <div id="tinderCardStack" class="relative w-full h-[520px] sm:h-[570px] select-none flex items-center justify-center">
+      <!-- The Cards Stack (Takes exactly available flex space) -->
+      <div id="tinderCardStack" class="relative w-full flex-1 min-h-0 my-1 select-none flex items-center justify-center">
         <!-- Rendered dynamically via renderTinderDeck() -->
       </div>
 
-      <!-- Ergonomic Action Dock (Directly under user thumb) -->
-      <div class="flex items-center justify-center gap-3.5 sm:gap-4 mt-3 pb-3 select-none">
-        <button onclick="tinderUndo()" id="btnUndo" title="Назад (Отменить последний свайп)" class="w-11 h-11 rounded-2xl bg-slate-900/90 border border-slate-800 text-slate-400 hover:text-white active:scale-90 transition flex items-center justify-center shadow-md cursor-pointer">
+      <!-- Ergonomic Action Dock (Directly under thumb, strictly above Bottom Nav) -->
+      <div class="flex items-center justify-center gap-3 sm:gap-4 mb-2 sm:mb-3 flex-shrink-0 select-none">
+        <button onclick="tinderUndo()" id="btnUndo" title="Назад (Ctrl+Z)" class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white active:scale-90 transition flex items-center justify-center shadow-md cursor-pointer">
           <i data-lucide="rotate-ccw" class="w-4 h-4 pointer-events-none"></i>
         </button>
-        <button onclick="tinderSwipe('left')" id="btnPass" title="Пропустить (В архив)" class="w-14 h-14 rounded-2xl bg-slate-900/95 border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 active:scale-90 transition flex items-center justify-center shadow-lg shadow-rose-500/10 cursor-pointer">
-          <i data-lucide="x" class="w-7 h-7 pointer-events-none"></i>
+        <button onclick="tinderSwipe('left')" id="btnPass" title="Пропустить (В архив)" class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-slate-900/95 border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 active:scale-90 transition flex items-center justify-center shadow-lg shadow-rose-500/10 cursor-pointer">
+          <i data-lucide="x" class="w-6 h-6 pointer-events-none"></i>
         </button>
-        <button onclick="tinderLetter()" id="btnLetter" title="Сформировать отклик и письмо" class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white hover:from-indigo-500 hover:to-violet-400 active:scale-95 transition flex items-center justify-center shadow-xl shadow-indigo-600/40 cursor-pointer">
+        <button onclick="tinderLetter()" id="btnLetter" title="Сформировать отклик" class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white hover:from-indigo-500 hover:to-violet-400 active:scale-95 transition flex items-center justify-center shadow-xl shadow-indigo-600/40 cursor-pointer">
           <i data-lucide="zap" class="w-7 h-7 pointer-events-none"></i>
         </button>
-        <button onclick="tinderSwipe('right')" id="btnSave" title="Сохранить в планы" class="w-14 h-14 rounded-2xl bg-slate-900/95 border border-amber-500/40 text-amber-400 hover:bg-amber-500/20 active:scale-90 transition flex items-center justify-center shadow-lg shadow-amber-500/10 cursor-pointer">
-          <i data-lucide="star" class="w-7 h-7 fill-amber-400/20 pointer-events-none"></i>
+        <button onclick="tinderSwipe('right')" id="btnSave" title="Сохранить в планы" class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-slate-900/95 border border-amber-500/40 text-amber-400 hover:bg-amber-500/20 active:scale-90 transition flex items-center justify-center shadow-lg shadow-amber-500/10 cursor-pointer">
+          <i data-lucide="star" class="w-6 h-6 fill-amber-400/20 pointer-events-none"></i>
         </button>
-        <button onclick="tinderToggleDetails()" id="btnInfo" title="Раскрыть подробности" class="w-11 h-11 rounded-2xl bg-slate-900/90 border border-slate-800 text-slate-400 hover:text-white active:scale-90 transition flex items-center justify-center shadow-md cursor-pointer">
+        <button onclick="tinderToggleDetails()" id="btnInfo" title="Подробнее о вакансии" class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white active:scale-90 transition flex items-center justify-center shadow-md cursor-pointer">
           <i data-lucide="info" class="w-4 h-4 pointer-events-none"></i>
         </button>
       </div>
 
-      <!-- Swipe Gesture Hints -->
-      <div class="text-[11px] text-slate-500 text-center flex items-center justify-center gap-2">
-        <span class="hover:text-rose-400 cursor-pointer" onclick="tinderSwipe('left')">👈 Свайп влево: Пропуск</span>
+      <!-- Quick Hint -->
+      <div class="text-[10px] text-slate-500 text-center flex-shrink-0 flex items-center justify-center gap-2 mb-1 select-none">
+        <span class="hover:text-rose-400 cursor-pointer" onclick="tinderSwipe('left')">👈 Пропуск</span>
         <span>•</span>
-        <span class="hover:text-indigo-400 cursor-pointer" onclick="tinderLetter()">👆 Вверх: Отклик</span>
+        <span class="hover:text-indigo-400 cursor-pointer" onclick="tinderLetter()">👆 Отклик</span>
         <span>•</span>
-        <span class="hover:text-amber-400 cursor-pointer" onclick="tinderSwipe('right')">В планы: Свайп вправо 👉</span>
+        <span class="hover:text-amber-400 cursor-pointer" onclick="tinderSwipe('right')">В планы 👉</span>
       </div>
     </div>
 
     <!-- Classic List / Grid View Wrapper -->
-    <div id="listViewWrapper" class="hidden">
+    <div id="listViewWrapper" class="hidden flex-1 min-h-0 overflow-y-auto pb-[calc(70px+max(8px,env(safe-area-inset-bottom,8px)))] custom-scroll pr-1">
       <!-- Stats Bar (Responsive Metric Cards) -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4 my-4 sm:my-5">
       <div onclick="switchTab('inbox')" class="p-3 sm:p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800/80 hover:border-indigo-500/30 cursor-pointer active:scale-98 transition shadow-sm" id="statInboxCard">
@@ -457,7 +417,7 @@
   </div>
 
   <!-- Fixed Mobile Bottom Navigation Bar -->
-  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 border-t border-slate-800/90 backdrop-blur-xl px-2 sm:px-6 py-1.5 shadow-2xl">
+  <nav id="mobileBottomNav" class="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 border-t border-slate-800/90 backdrop-blur-xl px-2 sm:px-6 pt-1.5 shadow-2xl" style="padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));">
     <div class="max-w-md sm:max-w-xl mx-auto flex items-center justify-around text-xs">
       <button onclick="setTabFromBottom('inbox')" id="bnav_inbox" class="bnav-btn flex flex-col items-center gap-0.5 py-1 px-3 text-indigo-400 font-semibold transition active:scale-95 cursor-pointer">
         <div class="relative">
@@ -1633,7 +1593,6 @@
       currentTinderIndex = 0;
       applyFilters();
     }
-    }
 
     function clearSearch() {
       document.getElementById('searchInput').value = '';
@@ -2016,13 +1975,14 @@
     // Отрисовка колоды свайпов (Tinder Deck)
     function renderTinderDeck() {
       const stack = document.getElementById('tinderCardStack');
+      const counterBadge = document.getElementById('tinderCounterBadge');
       const counterText = document.getElementById('tinderCounterText');
       if (!stack) return;
 
       const list = currentTinderList;
       if (!list || list.length === 0 || currentTinderIndex >= list.length) {
         stack.innerHTML = `
-          <div id="tinderCardEmpty" class="absolute inset-0 rounded-3xl bg-slate-900/95 border border-slate-800 p-6 sm:p-8 flex flex-col items-center justify-center text-center shadow-2xl">
+          <div id="tinderCardEmpty" class="absolute inset-0 max-h-[calc(100dvh-220px)] my-auto rounded-3xl bg-slate-900/95 border border-slate-800 p-6 sm:p-8 flex flex-col items-center justify-center text-center shadow-2xl">
             <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-500/20 to-emerald-500/20 text-indigo-400 flex items-center justify-center mb-4 border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
               <i data-lucide="check-check" class="w-8 h-8"></i>
             </div>
@@ -2038,11 +1998,15 @@
             </div>
           </div>
         `;
+        if (counterBadge) counterBadge.textContent = '0 / 0';
         if (counterText) counterText.textContent = '0 вакансий';
         if (window.lucide) lucide.createIcons();
         return;
       }
 
+      if (counterBadge) {
+        counterBadge.textContent = `${currentTinderIndex + 1} / ${list.length}`;
+      }
       if (counterText) {
         counterText.textContent = `${currentTinderIndex + 1} из ${list.length}`;
       }
@@ -2054,12 +2018,12 @@
       if (vNext) {
         const nextScore = Number(vNext.match_score || vNext.analysis?.match_score || 7);
         nextCardHtml = `
-          <div id="tinderCardNext" class="absolute inset-0 rounded-3xl bg-slate-900/80 border border-slate-800/80 p-5 flex flex-col justify-between shadow-xl scale-[0.94] translate-y-3 opacity-60 pointer-events-none transition-all">
+          <div id="tinderCardNext" class="absolute inset-0 max-h-[calc(100dvh-220px)] my-auto rounded-3xl bg-slate-900/80 border border-slate-800/80 p-4 sm:p-5 flex flex-col justify-between shadow-xl scale-[0.94] translate-y-3 opacity-60 pointer-events-none transition-all">
             <div class="flex items-center justify-between">
               <span class="text-xs font-semibold text-slate-400 truncate max-w-[200px]">${escapeHtml(vNext.company || '')}</span>
               <span class="text-xs font-bold text-indigo-400">🔥 ${nextScore}/10</span>
             </div>
-            <h4 class="text-base font-bold text-slate-300 truncate">${escapeHtml(vNext.title || '')}</h4>
+            <h4 class="text-sm sm:text-base font-bold text-slate-300 truncate">${escapeHtml(vNext.title || '')}</h4>
             <div class="text-xs text-slate-500">Следующая в очереди...</div>
           </div>
         `;
@@ -2103,18 +2067,18 @@
       else if (isStrong) scorePill = `<span class="px-2.5 py-1 rounded-xl text-xs font-black border bg-amber-500/20 text-amber-300 border-amber-500/30">⚡ ${score}/10</span>`;
 
       const topCardHtml = `
-        <div id="tinderCardTop" class="tinder-card absolute inset-0 rounded-3xl ${topBorder} p-5 sm:p-6 flex flex-col justify-between shadow-2xl cursor-grab active:cursor-grabbing overflow-hidden">
+        <div id="tinderCardTop" class="tinder-card absolute inset-0 max-h-[calc(100dvh-220px)] my-auto rounded-3xl ${topBorder} p-3.5 sm:p-5 flex flex-col justify-between shadow-2xl cursor-grab active:cursor-grabbing overflow-hidden">
 
           ${isTop ? '<div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-500"></div>' : ''}
 
           <!-- Stamp Badges Overlay -->
-          <div id="stampLike" class="stamp-badge absolute top-6 right-6 border-4 border-emerald-400 text-emerald-400 font-black text-xl px-4 py-1 rounded-2xl rotate-12 opacity-0 shadow-lg bg-slate-950/90 z-20">В ПЛАНЫ ⭐</div>
-          <div id="stampPass" class="stamp-badge absolute top-6 left-6 border-4 border-rose-500 text-rose-500 font-black text-xl px-4 py-1 rounded-2xl -rotate-12 opacity-0 shadow-lg bg-slate-950/90 z-20">ПРОПУСК ❌</div>
-          <div id="stampApply" class="stamp-badge absolute top-6 left-1/2 -translate-x-1/2 border-4 border-indigo-400 text-indigo-400 font-black text-base px-4 py-1 rounded-2xl opacity-0 shadow-lg bg-slate-950/90 z-20">ОТКЛИК 🚀</div>
+          <div id="stampLike" class="stamp-badge absolute top-6 right-6 border-4 border-emerald-400 text-emerald-400 font-black text-xl px-4 py-1 rounded-2xl rotate-12 opacity-0 shadow-lg bg-slate-950/90 z-20 pointer-events-none">В ПЛАНЫ ⭐</div>
+          <div id="stampPass" class="stamp-badge absolute top-6 left-6 border-4 border-rose-500 text-rose-500 font-black text-xl px-4 py-1 rounded-2xl -rotate-12 opacity-0 shadow-lg bg-slate-950/90 z-20 pointer-events-none">ПРОПУСК ❌</div>
+          <div id="stampApply" class="stamp-badge absolute top-6 left-1/2 -translate-x-1/2 border-4 border-indigo-400 text-indigo-400 font-black text-base px-4 py-1 rounded-2xl opacity-0 shadow-lg bg-slate-950/90 z-20 pointer-events-none">ОТКЛИК 🚀</div>
 
-          <!-- Top Meta -->
-          <div>
-            <div class="flex items-center justify-between gap-1 mb-2">
+          <!-- Top Meta & Title (Compact) -->
+          <div class="flex-shrink-0">
+            <div class="flex items-center justify-between gap-1 mb-1.5">
               <div class="flex items-center gap-1.5 flex-wrap">
                 ${roleBadge}
                 ${sourceBadge}
@@ -2124,49 +2088,56 @@
             </div>
 
             <!-- Title & Company -->
-            <h3 class="text-lg sm:text-xl font-black text-white hover:text-indigo-400 transition cursor-pointer leading-tight mb-1" onclick="openLink('${safeLink}')">
+            <h3 class="text-base sm:text-lg font-black text-white hover:text-indigo-400 transition cursor-pointer leading-tight mb-1 line-clamp-2" onclick="openLink('${safeLink}')">
               ${safeTitle}
             </h3>
-            <div class="text-xs text-slate-400 flex items-center gap-2 flex-wrap mb-2">
-              <span class="flex items-center gap-1 font-semibold text-slate-300"><i data-lucide="building-2" class="w-3.5 h-3.5 text-slate-500"></i> ${safeCompany}</span>
-              ${safeSalary ? `<span class="text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20"><i data-lucide="banknote" class="w-3.5 h-3.5"></i> ${safeSalary}</span>` : ''}
+            <div class="text-xs text-slate-400 flex items-center gap-2 flex-wrap mb-1.5">
+              <span class="flex items-center gap-1 font-semibold text-slate-300 truncate max-w-[170px] sm:max-w-xs"><i data-lucide="building-2" class="w-3 h-3 text-slate-500"></i> ${safeCompany}</span>
+              ${safeSalary ? `<span class="text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 text-[11px]"><i data-lucide="banknote" class="w-3 h-3"></i> ${safeSalary}</span>` : ''}
             </div>
+          </div>
 
-            <!-- Stack tags -->
+          <!-- Middle Zone: Tech Stack & Compact AI Verdict -->
+          <div class="flex-1 min-h-0 flex flex-col justify-center my-1 overflow-hidden">
+            <!-- Stack tags (Strictly 1 line: max 3-4 chips + +N badge) -->
             ${(vTop.stack && vTop.stack.length > 0) ? `
-              <div class="flex items-center gap-1 flex-wrap my-2.5">
-                ${vTop.stack.slice(0, 6).map(s => getTechBadge(s)).join('')}
+              <div class="flex items-center gap-1 flex-nowrap overflow-hidden mb-1.5">
+                ${vTop.stack.slice(0, 3).map(s => getTechBadge(s)).join('')}
+                ${vTop.stack.length > 3 ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-400 flex-shrink-0">+${vTop.stack.length - 3}</span>` : ''}
               </div>
             ` : ''}
 
-            <!-- AI Verdict Box -->
+            <!-- AI Verdict Box (Compact, line-clamp-2 with expand action) -->
             ${safeVerdict ? `
-              <div class="my-2 p-3 rounded-2xl bg-gradient-to-br from-indigo-950/30 via-slate-950/70 to-slate-950/90 border border-indigo-500/20 border-l-4 border-l-indigo-500 text-xs leading-relaxed text-slate-200 shadow-inner">
-                <div class="font-bold text-indigo-300 flex items-center gap-1 mb-1">
-                  <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
-                  <span>AI Вердикт</span>
+              <div class="p-2.5 rounded-2xl bg-gradient-to-br from-indigo-950/40 via-slate-950/80 to-slate-950/90 border border-indigo-500/20 border-l-4 border-l-indigo-500 text-xs text-slate-200 shadow-inner">
+                <div class="font-bold text-indigo-300 flex items-center justify-between gap-1 mb-1">
+                  <div class="flex items-center gap-1">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
+                    <span>AI Вердикт</span>
+                  </div>
+                  <button onclick="tinderToggleDetails()" class="text-[10px] text-indigo-400 hover:text-indigo-300 underline cursor-pointer">Подробнее</button>
                 </div>
-                <p>${safeVerdict}</p>
-                ${safeRecom ? `<div class="mt-1.5 text-sky-300/90 text-[11px] font-medium flex items-center gap-1">💡 <span>${safeRecom}</span></div>` : ''}
-                ${safeEduWarn ? `<div class="mt-1 text-amber-300 text-[11px] flex items-center gap-1">⚠️ <span>${safeEduWarn}</span></div>` : ''}
+                <p class="line-clamp-2 text-slate-300 text-[11px] leading-snug" style="-webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden;">${safeVerdict}</p>
+                ${safeRecom ? `<div class="mt-1 text-sky-300/90 text-[10px] font-medium truncate flex items-center gap-1">💡 <span>${safeRecom}</span></div>` : ''}
+                ${safeEduWarn ? `<div class="mt-0.5 text-amber-300 text-[10px] truncate flex items-center gap-1">⚠️ <span>${safeEduWarn}</span></div>` : ''}
               </div>
             ` : ''}
           </div>
 
-          <!-- Bottom Expandable Info or Link -->
-          <div class="pt-2 border-t border-slate-800/70 flex items-center justify-between text-xs text-slate-400">
+          <!-- Bottom Card Controls & Link -->
+          <div class="pt-2 border-t border-slate-800/70 flex items-center justify-between text-xs text-slate-400 flex-shrink-0">
             <button onclick="tinderToggleDetails()" class="hover:text-indigo-400 flex items-center gap-1 font-medium transition cursor-pointer">
               <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-400"></i>
-              <span id="tinderDetailsToggleText">Описание и требования</span>
+              <span id="tinderDetailsToggleText">Описание</span>
             </button>
-            <a href="${safeLink}" target="_blank" onclick="event.preventDefault(); openLink('${safeLink}')" class="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition flex items-center gap-1" title="Открыть вакансию в браузере">
+            <a href="${safeLink}" target="_blank" onclick="event.preventDefault(); openLink('${safeLink}')" class="p-1 px-2 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition flex items-center gap-1" title="Открыть вакансию в браузере">
               <span class="text-[11px]">На сайт</span>
               <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
             </a>
           </div>
 
           <!-- Expandable Details Overlay inside card -->
-          <div id="tinderCardDetails" class="hidden absolute inset-0 z-10 bg-slate-950/95 backdrop-blur-md p-5 flex flex-col justify-between rounded-3xl">
+          <div id="tinderCardDetails" class="hidden absolute inset-0 z-10 bg-slate-950/95 backdrop-blur-md p-4 sm:p-5 flex flex-col justify-between rounded-3xl">
             <div class="flex items-center justify-between pb-2 border-b border-slate-800">
               <span class="text-xs font-bold text-indigo-400 flex items-center gap-1.5"><i data-lucide="file-text" class="w-4 h-4"></i> Описание вакансии</span>
               <button onclick="tinderToggleDetails()" class="p-1 text-slate-400 hover:text-white cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>

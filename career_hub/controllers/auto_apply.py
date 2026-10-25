@@ -417,6 +417,7 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
     }
 
     csrf_token = ""
+    resume_id = None
 
     try:
         page_resp = req_mod.get(f"https://career.habr.com/vacancies/{clean_id}", headers=get_headers, timeout=15, allow_redirects=True)
@@ -491,7 +492,8 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
             or re.search(r'<option[^>]+value=["\']([^"\']+)["\'][^>]*selected', html_text, re.IGNORECASE)
             or re.search(r'data-resume-id=["\']([^"\']+)["\']', html_text, re.IGNORECASE)
         )
-        resume_id = resume_m.group(1).strip() if resume_m else None
+        if resume_m:
+            resume_id = resume_m.group(1).strip()
 
         if not csrf_token:
             if ext_match:
@@ -504,7 +506,7 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
         logger.error(f"Исключение при загрузке страницы вакансии Хабра #{clean_id}: {e}")
         return {"ok": False, "status": "error", "detail": str(e)}
 
-    # Современный REST API эндпоинт Хабр Карьеры
+    # REST API эндпоинт Хабр Карьеры
     post_url = f"https://career.habr.com/api/frontend/vacancies/{clean_id}/responses"
     post_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
@@ -543,8 +545,8 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
             response_obj = resp_data.get("response") or {}
             response_id = response_obj.get("id")
 
-            # Шаг 2: Прикрепление сопроводительного письма через PATCH
-            if response_id and clean_letter:
+            # Шаг 2: При необходимости патчим сопроводительное письмо
+            if response_id and clean_letter and not payload.get("response[message]"):
                 patch_url = f"https://career.habr.com/api/frontend/vacancies/{clean_id}/responses/{response_id}"
                 try:
                     req_mod.patch(patch_url, headers=post_headers, data={"response[message]": clean_letter}, timeout=12)
@@ -564,7 +566,6 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
             return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик"}
 
         if resp.status_code in [400, 422]:
-            # В ряде случаев Хабр возвращает 400 при повторной подаче отклика
             if "bad request" in lower_resp or "already" in lower_resp:
                 return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик на Хабр Карьере"}
             if "authenticity" in lower_resp or "csrf" in lower_resp:
