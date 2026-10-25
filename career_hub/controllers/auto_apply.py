@@ -411,13 +411,12 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
 
     req_mod = _get_bot_ref("requests", requests)
     get_headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
         "Cookie": cookie_str,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
 
     csrf_token = ""
-    resume_id = None
 
     try:
         page_resp = req_mod.get(f"https://career.habr.com/vacancies/{clean_id}", headers=get_headers, timeout=15, allow_redirects=True)
@@ -443,7 +442,24 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
         if "challenge" in lower_text and ("cloudflare" in lower_text or "cf-turnstile" in lower_text or "challenge-running" in lower_text):
             return {"ok": False, "status": "captcha_required", "detail": "Требуется подтверждение браузера Cloudflare на Хабр Карьере"}
 
-        if any(phrase in lower_text for phrase in ["вы уже откликнулись", "отклик отправлен", "already_applied", "already applied"]):
+        # Проверка состояния отклика через Vue SSR State
+        ssr_m = re.search(r'<script type="application/json" data-ssr-state="true">(.*?)</script>', html_text)
+        if ssr_m:
+            try:
+                ssr_data = json.loads(ssr_m.group(1))
+                create_resp_state = ssr_data.get("createResponse") or {}
+                existing_resp = create_resp_state.get("response")
+                if existing_resp is not None:
+                    return {
+                        "ok": True,
+                        "status": "already_applied",
+                        "detail": "Ранее уже был подан отклик на Хабр Карьере",
+                        "response_id": existing_resp.get("id") if isinstance(existing_resp, dict) else None
+                    }
+            except Exception:
+                pass
+
+        if any(phrase in lower_text for phrase in ["вы уже откликнулись", "посмотреть отклик", "отклик отправлен", "already_applied", "already applied"]):
             return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик"}
 
         if any(phrase in lower_text for phrase in ["вакансия закрыта", "вакансия в архиве", "закрытая вакансия"]):
@@ -454,8 +470,8 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
             or re.search(r'class="[^"]*(?:external-button|external_link|btn-external|vacancy-show__external)[^"]*"[^>]*href="([^"]+)"', html_text, re.IGNORECASE)
             or re.search(r'<a[^>]+href="(https?://[^"]+)"[^>]*>(?:(?!</a>).)*?(?:Откликнуться на сайте|на сайте компании|на сайте работодателя)', html_text, re.IGNORECASE | re.DOTALL)
         )
-        has_response_form = bool(re.search(r'<form[^>]+action=["\'][^"\']*/responses["\']', html_text, re.IGNORECASE))
-        if ext_match and not has_response_form:
+        has_response_action = bool(re.search(r'applyToVacancy|create-vacancy-response|откликнуться', lower_text))
+        if ext_match and not has_response_action:
             return {"ok": False, "status": "direct_required", "detail": "Требуется прямой отклик на сайте работодателя", "redirect_url": ext_match.group(1)}
 
         csrf_m = (
@@ -467,13 +483,6 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
         if csrf_m:
             csrf_token = csrf_m.group(1).strip()
 
-        if not csrf_token:
-            if ext_match:
-                return {"ok": False, "status": "direct_required", "detail": "Требуется прямой отклик на сайте работодателя", "redirect_url": ext_match.group(1)}
-            if any(k in lower_text for k in ["войти", "авториз", "sign_in"]):
-                return {"ok": False, "status": "cookie_expired", "detail": "Сессия Хабр Карьеры не авторизована (требуется повторный вход)"}
-            return {"ok": False, "status": "error", "detail": "Не удалось обнаружить форму отклика или CSRF-токен на странице вакансии"}
-
         resume_m = (
             re.search(r'name=["\']response\[resume_id\]["\'][^>]+value=["\']([^"\']+)["\']', html_text, re.IGNORECASE)
             or re.search(r'value=["\']([^"\']+)["\'][^>]+name=["\']response\[resume_id\]["\']', html_text, re.IGNORECASE)
@@ -482,58 +491,85 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
             or re.search(r'<option[^>]+value=["\']([^"\']+)["\'][^>]*selected', html_text, re.IGNORECASE)
             or re.search(r'data-resume-id=["\']([^"\']+)["\']', html_text, re.IGNORECASE)
         )
-        if resume_m:
-            resume_id = resume_m.group(1).strip()
+        resume_id = resume_m.group(1).strip() if resume_m else None
+
+        if not csrf_token:
+            if ext_match:
+                return {"ok": False, "status": "direct_required", "detail": "Требуется прямой отклик на сайте работодателя", "redirect_url": ext_match.group(1)}
+            if any(k in lower_text for k in ["войти", "авториз", "sign_in"]):
+                return {"ok": False, "status": "cookie_expired", "detail": "Сессия Хабр Карьеры не авторизована (требуется повторный вход)"}
+            return {"ok": False, "status": "error", "detail": "Не удалось обнаружить форму отклика или CSRF-токен на странице вакансии"}
+
     except Exception as e:
         logger.error(f"Исключение при загрузке страницы вакансии Хабра #{clean_id}: {e}")
         return {"ok": False, "status": "error", "detail": str(e)}
 
-    post_url = f"https://career.habr.com/vacancies/{clean_id}/responses"
+    # Современный REST API эндпоинт Хабр Карьеры
+    post_url = f"https://career.habr.com/api/frontend/vacancies/{clean_id}/responses"
     post_headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
         "Cookie": cookie_str,
         "X-CSRF-Token": csrf_token,
-        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "application/json",
         "Origin": "https://career.habr.com",
         "Referer": f"https://career.habr.com/vacancies/{clean_id}",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
     }
 
-    payload = {
-        "authenticity_token": csrf_token,
-        "response[message]": clean_letter,
-    }
+    payload = {}
     if resume_id:
         payload["response[resume_id]"] = resume_id
+    if clean_letter:
+        payload["response[message]"] = clean_letter
+    if csrf_token:
+        payload["authenticity_token"] = csrf_token
 
     try:
+        # Шаг 1: Создание отклика через API
         resp = req_mod.post(post_url, headers=post_headers, data=payload, timeout=15, allow_redirects=False)
 
         if resp.status_code in [200, 201]:
             lower_resp = resp.text.lower()
-            if any(phrase in lower_resp for phrase in ["already_applied", "вы уже откликнулись"]):
-                return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик"}
-            if "test" in lower_resp and ("required" in lower_resp or "обязательн" in lower_resp):
-                return {"ok": False, "status": "test_required", "detail": "Требуется обязательный тест/анкета работодателя"}
-
             if "<form" in lower_resp and any(err_word in lower_resp for err_word in ["error", "ошибк", "заполните", "не выбран"]):
                 err_m = re.search(r'class="[^"]*(?:form-error|error|notice|alert)[^"]*">([^<]+)<', resp.text, re.IGNORECASE)
                 err_text = err_m.group(1).strip() if err_m else "Форма отклика отклонена Хабр Карьерой"
                 return {"ok": False, "status": "error", "detail": err_text}
 
+            resp_data = {}
             try:
-                data = resp.json()
-                if isinstance(data, dict):
-                    if data.get("error") or data.get("errors"):
-                        err_desc = str(data.get("errors") or data.get("error"))
-                        if "already" in err_desc.lower():
-                            return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик"}
-                        return {"ok": False, "status": "error", "detail": err_desc}
-                    return {"ok": True, "status": "applied", "detail": "Отклик успешно зарегистрирован через веб-сессию Хабр Карьеры", "data": data}
+                resp_data = resp.json()
             except Exception:
                 pass
-            return {"ok": True, "status": "applied", "detail": "Отклик успешно зарегистрирован через веб-сессию Хабр Карьеры"}
+
+            response_obj = resp_data.get("response") or {}
+            response_id = response_obj.get("id")
+
+            # Шаг 2: Прикрепление сопроводительного письма через PATCH
+            if response_id and clean_letter:
+                patch_url = f"https://career.habr.com/api/frontend/vacancies/{clean_id}/responses/{response_id}"
+                try:
+                    req_mod.patch(patch_url, headers=post_headers, data={"response[message]": clean_letter}, timeout=12)
+                except Exception as pe:
+                    logger.warning(f"Ошибка прикрепления письма к отклику Habr #{response_id}: {pe}")
+
+            return {
+                "ok": True,
+                "status": "applied",
+                "detail": "Отклик успешно зарегистрирован через веб-сессию Хабр Карьеры",
+                "response_id": response_id,
+                "data": resp_data
+            }
+
+        lower_resp = resp.text.lower()
+        if any(phrase in lower_resp for phrase in ["already_applied", "вы уже откликнулись", "дубликат"]):
+            return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик"}
+
+        if resp.status_code in [400, 422]:
+            # В ряде случаев Хабр возвращает 400 при повторной подаче отклика
+            if "bad request" in lower_resp or "already" in lower_resp:
+                return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик на Хабр Карьере"}
+            if "authenticity" in lower_resp or "csrf" in lower_resp:
+                return {"ok": False, "status": "cookie_expired", "detail": "CSRF-токен или сессия Хабр Карьеры недействительна"}
+            return {"ok": False, "status": "error", "detail": f"Ошибка отклика ({resp.status_code}): {resp.text[:100]}"}
 
         if resp.status_code in [302, 303]:
             loc = resp.headers.get("Location", "")
@@ -545,14 +581,6 @@ def apply_habr_vacancy_web(raw_id: str, cover_letter: str, cookie_str: str) -> d
 
         if resp.status_code in [401, 403]:
             return {"ok": False, "status": "cookie_expired", "detail": "Сессия Хабр Карьеры устарела или отклонена"}
-
-        if resp.status_code == 422:
-            lower_resp = resp.text.lower()
-            if "already" in lower_resp or "уже откликнулись" in lower_resp:
-                return {"ok": True, "status": "already_applied", "detail": "Ранее уже был подан отклик"}
-            if "authenticity" in lower_resp or "csrf" in lower_resp:
-                return {"ok": False, "status": "cookie_expired", "detail": "CSRF-токен или сессия Хабр Карьеры недействительна"}
-            return {"ok": False, "status": "error", "detail": f"Ошибка отклика (422): {resp.text[:100]}"}
 
         return {"ok": False, "status": "error", "detail": f"HTTP {resp.status_code}: {resp.text[:100]}"}
     except Exception as e:
@@ -1462,6 +1490,11 @@ def process_vacancy_auto_apply_and_notify(v: dict, analysis: dict, config: dict,
         if b_clean and (b_clean in comp_lower or b_clean in title_lower):
             logger.info(f"Пропуск авто-отклика для {v_id}: компания '{company}' находится в черном списке ({b_clean})")
             return False, False
+
+    # Защитный барьер: проверка отключенных платформ (Работа России)
+    if (v.get("source") in ["trudvsem"] or str(v_id).startswith("trudvsem_") or str(v_id).startswith("tv_")) and not cfg.get("enable_trudvsem", False):
+        logger.info(f"Пропуск вакансии и оповещения для {v_id}: платформа 'Работа России' отключена в настройках")
+        return False, False
 
     if auto_apply_enabled and score >= auto_apply_min_score:
         logger.info(f"Генерация авто-отклика для [{source_name}] {clean_title} (Score {score})...")

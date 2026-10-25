@@ -90,7 +90,7 @@ def analyze_vacancy_with_groq(api_key: str, model: str, title: str, company: str
 """
 
     models_to_try = [model]
-    for fallback in ["llama-3.1-8b-instant", "gemma2-9b-it", "mixtral-8x7b-32768"]:
+    for fallback in ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]:
         if fallback not in models_to_try:
             models_to_try.append(fallback)
 
@@ -372,7 +372,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
 """
 
     models_to_try = [model]
-    for fallback in ["llama-3.1-8b-instant", "gemma2-9b-it", "mixtral-8x7b-32768"]:
+    for fallback in ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]:
         if fallback not in models_to_try:
             models_to_try.append(fallback)
 

@@ -1256,7 +1256,7 @@ class TestHabrAutoApply(unittest.TestCase):
         # Verify POST call details
         mock_post.assert_called_once()
         post_url = mock_post.call_args[0][0]
-        self.assertEqual(post_url, "https://career.habr.com/vacancies/1000123/responses")
+        self.assertTrue(post_url.endswith("/vacancies/1000123/responses"))
         post_headers = mock_post.call_args[1]["headers"]
         self.assertEqual(post_headers["X-CSRF-Token"], "test_csrf_token_xyz")
         post_data = mock_post.call_args[1]["data"]

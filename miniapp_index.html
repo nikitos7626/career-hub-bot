@@ -69,6 +69,41 @@
     .card-hover:hover {
       transform: translateY(-2px);
     }
+    .tinder-card {
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.25s ease;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .tinder-card.dragging {
+      transition: none !important;
+    }
+    .tinder-card.fly-right {
+      transform: translate3d(140%, 0, 0) rotate(35deg) !important;
+      opacity: 0 !important;
+      transition: transform 0.35s ease-out, opacity 0.3s ease-out !important;
+    }
+    .tinder-card.fly-left {
+      transform: translate3d(-140%, 0, 0) rotate(-35deg) !important;
+      opacity: 0 !important;
+      transition: transform 0.35s ease-out, opacity 0.3s ease-out !important;
+    }
+    .tinder-card.fly-up {
+      transform: translate3d(0, -120%, 0) scale(0.9) !important;
+      opacity: 0 !important;
+      transition: transform 0.35s ease-out, opacity 0.3s ease-out !important;
+    }
+    .stamp-badge {
+      transition: opacity 0.15s ease;
+      pointer-events: none;
+    }
+    .drawer-enter {
+      animation: drawerSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes drawerSlide {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
     .hidden {
       display: none !important;
     }
@@ -106,6 +141,25 @@
 
       <!-- Right actions toolbar -->
       <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+        <!-- View Mode Switcher -->
+        <div class="flex items-center p-0.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold">
+          <button onclick="setViewMode('tinder')" id="btnModeTinder" title="Свайпы (Tinder)" class="px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition bg-indigo-600 text-white shadow-sm">
+            <i data-lucide="flame" class="w-3.5 h-3.5 text-amber-300"></i>
+            <span class="hidden sm:inline">Свайп</span>
+          </button>
+          <button onclick="setViewMode('list')" id="btnModeList" title="Список (Канбан)" class="px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition text-slate-400 hover:text-white">
+            <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Список</span>
+          </button>
+        </div>
+
+        <!-- Filter Button -->
+        <button onclick="openFiltersDrawer()" id="btnOpenFilters" title="Фильтры" class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-slate-900/90 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center gap-1.5 text-xs font-medium shadow-sm">
+          <i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-400"></i>
+          <span class="hidden sm:inline">Фильтры</span>
+          <span id="activeFiltersBadge" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-500 text-white font-bold"></span>
+        </button>
+
         <button onclick="refreshData()" id="refreshBtn" title="Обновить ленту вакансий" class="w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-xl bg-slate-900/90 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs font-medium shadow-sm">
           <i data-lucide="rotate-cw" class="w-4 h-4 text-slate-400" id="refreshIcon"></i>
           <span class="hidden sm:inline">Обновить</span>
@@ -129,8 +183,60 @@
       </div>
     </header>
 
-    <!-- Stats Bar (Responsive Metric Cards) -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4 my-4 sm:my-5">
+    <!-- Tinder Swiper Deck View (Default on mobile) -->
+    <div id="tinderDeckWrapper" class="max-w-md sm:max-w-lg mx-auto w-full my-1 sm:my-3">
+      <!-- Deck Subheader (Card counter + Filter pill) -->
+      <div class="flex items-center justify-between mb-2.5 px-2 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-white text-sm" id="tinderCounterText">Загрузка...</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 font-semibold border border-indigo-500/30 flex items-center gap-1">
+            <i data-lucide="sparkles" class="w-3 h-3 text-indigo-400"></i> AI Match
+          </span>
+        </div>
+        <button onclick="openFiltersDrawer()" class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white flex items-center gap-1.5 transition text-xs shadow-sm cursor-pointer">
+          <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span id="activeFilterPill">Фильтры</span>
+        </button>
+      </div>
+
+      <!-- The Cards Stack (Container for interactive cards) -->
+      <div id="tinderCardStack" class="relative w-full h-[520px] sm:h-[570px] select-none flex items-center justify-center">
+        <!-- Rendered dynamically via renderTinderDeck() -->
+      </div>
+
+      <!-- Ergonomic Action Dock (Directly under user thumb) -->
+      <div class="flex items-center justify-center gap-3.5 sm:gap-4 mt-3 pb-3 select-none">
+        <button onclick="tinderUndo()" id="btnUndo" title="Назад (Отменить последний свайп)" class="w-11 h-11 rounded-2xl bg-slate-900/90 border border-slate-800 text-slate-400 hover:text-white active:scale-90 transition flex items-center justify-center shadow-md cursor-pointer">
+          <i data-lucide="rotate-ccw" class="w-4 h-4 pointer-events-none"></i>
+        </button>
+        <button onclick="tinderSwipe('left')" id="btnPass" title="Пропустить (В архив)" class="w-14 h-14 rounded-2xl bg-slate-900/95 border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 active:scale-90 transition flex items-center justify-center shadow-lg shadow-rose-500/10 cursor-pointer">
+          <i data-lucide="x" class="w-7 h-7 pointer-events-none"></i>
+        </button>
+        <button onclick="tinderLetter()" id="btnLetter" title="Сформировать отклик и письмо" class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white hover:from-indigo-500 hover:to-violet-400 active:scale-95 transition flex items-center justify-center shadow-xl shadow-indigo-600/40 cursor-pointer">
+          <i data-lucide="zap" class="w-7 h-7 pointer-events-none"></i>
+        </button>
+        <button onclick="tinderSwipe('right')" id="btnSave" title="Сохранить в планы" class="w-14 h-14 rounded-2xl bg-slate-900/95 border border-amber-500/40 text-amber-400 hover:bg-amber-500/20 active:scale-90 transition flex items-center justify-center shadow-lg shadow-amber-500/10 cursor-pointer">
+          <i data-lucide="star" class="w-7 h-7 fill-amber-400/20 pointer-events-none"></i>
+        </button>
+        <button onclick="tinderToggleDetails()" id="btnInfo" title="Раскрыть подробности" class="w-11 h-11 rounded-2xl bg-slate-900/90 border border-slate-800 text-slate-400 hover:text-white active:scale-90 transition flex items-center justify-center shadow-md cursor-pointer">
+          <i data-lucide="info" class="w-4 h-4 pointer-events-none"></i>
+        </button>
+      </div>
+
+      <!-- Swipe Gesture Hints -->
+      <div class="text-[11px] text-slate-500 text-center flex items-center justify-center gap-2">
+        <span class="hover:text-rose-400 cursor-pointer" onclick="tinderSwipe('left')">👈 Свайп влево: Пропуск</span>
+        <span>•</span>
+        <span class="hover:text-indigo-400 cursor-pointer" onclick="tinderLetter()">👆 Вверх: Отклик</span>
+        <span>•</span>
+        <span class="hover:text-amber-400 cursor-pointer" onclick="tinderSwipe('right')">В планы: Свайп вправо 👉</span>
+      </div>
+    </div>
+
+    <!-- Classic List / Grid View Wrapper -->
+    <div id="listViewWrapper" class="hidden">
+      <!-- Stats Bar (Responsive Metric Cards) -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4 my-4 sm:my-5">
       <div onclick="switchTab('inbox')" class="p-3 sm:p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800/80 hover:border-indigo-500/30 cursor-pointer active:scale-98 transition shadow-sm" id="statInboxCard">
         <div class="flex items-center justify-between">
           <span class="text-xs sm:text-sm text-slate-400 font-medium">📥 Новые</span>
@@ -257,8 +363,136 @@
       <h3 class="text-base font-bold text-white mb-1" id="emptyTitle">В этой категории пусто</h3>
       <p class="text-xs text-slate-400 max-w-sm mx-auto" id="emptyDesc">Новые проверенные вакансии появятся здесь по мере мониторинга.</p>
     </div>
+  </div>
+  <!-- End of listViewWrapper -->
 
   </div>
+  <!-- End of #app -->
+
+  <!-- Filters Bottom Sheet Drawer (Mobile-first slide-up sheet) -->
+  <div id="filtersDrawer" onclick="if(event.target === this) closeFiltersDrawer()" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-end justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl drawer-enter max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3.5 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-white">Параметры фильтрации</h3>
+            <p class="text-[11px] text-slate-400">Настройка выборки под ваш стек</p>
+          </div>
+        </div>
+        <button onclick="closeFiltersDrawer()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="py-4 space-y-4 overflow-y-auto custom-scroll flex-1">
+        <!-- Search -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Поиск по ключевым словам:</label>
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5"></i>
+            <input
+              type="text"
+              id="searchInputDrawer"
+              placeholder="Стек, компания, должность..."
+              oninput="syncSearchInputs(this.value)"
+              class="w-full pl-10 pr-9 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition shadow-inner"
+            >
+            <button onclick="clearSearch()" class="hidden absolute right-3 top-3 text-slate-400 hover:text-white" id="clearSearchDrawerBtn">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Role Chips -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Специализация:</label>
+          <div class="flex items-center gap-1.5 flex-wrap text-xs">
+            <button onclick="setRoleFilter('all')" id="rf_drawer_all" class="rf-btn px-3 py-1.5 rounded-xl border bg-indigo-600/20 border-indigo-500 text-indigo-300 font-semibold whitespace-nowrap transition">Все роли</button>
+            <button onclick="setRoleFilter('java')" id="rf_drawer_java" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">☕ Java Backend</button>
+            <button onclick="setRoleFilter('java_ai')" id="rf_drawer_java_ai" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🤖 Java AI</button>
+            <button onclick="setRoleFilter('vpn_dev')" id="rf_drawer_vpn_dev" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🛡️ VPN (Xray)</button>
+            <button onclick="setRoleFilter('backend')" id="rf_drawer_backend" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">⚡ Backend Dev</button>
+            <button onclick="setRoleFilter('fullstack_js')" id="rf_drawer_fullstack_js" class="rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">💻 Frontend / JS</button>
+          </div>
+        </div>
+
+        <!-- Sources -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Платформа поиска:</label>
+          <div class="flex items-center gap-1.5 flex-wrap text-xs">
+            <button onclick="setSourceFilter('all')" id="sf_drawer_all" class="sf-btn px-3 py-1.5 rounded-xl border bg-slate-800 border-slate-700 text-slate-300 font-medium whitespace-nowrap transition">Все площадки</button>
+            <button onclick="setSourceFilter('hh')" id="sf_drawer_hh" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🔴 HeadHunter</button>
+            <button onclick="setSourceFilter('habr')" id="sf_drawer_habr" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🔵 Хабр</button>
+            <button onclick="setSourceFilter('rabota')" id="sf_drawer_rabota" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🔴 Работа.ру</button>
+            <button onclick="setSourceFilter('getmatch')" id="sf_drawer_getmatch" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🟣 GetMatch</button>
+            <button onclick="setSourceFilter('vseti')" id="sf_drawer_vseti" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🌐 СЕТИ</button>
+            <button onclick="setSourceFilter('remotive')" id="sf_drawer_remotive" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🟢 Удалёнка</button>
+            <button onclick="setSourceFilter('superjob')" id="sf_drawer_superjob" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">💼 SuperJob</button>
+            <button onclick="setSourceFilter('linkedin')" id="sf_drawer_linkedin" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">🌐 LinkedIn</button>
+            <button onclick="setSourceFilter('telegram')" id="sf_drawer_telegram" class="sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition">📢 Telegram</button>
+          </div>
+        </div>
+
+        <!-- Rating switch -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Рейтинг соответствия:</label>
+          <button onclick="toggleTopScore()" id="scoreDrawerBtn" class="px-3.5 py-2 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs whitespace-nowrap flex items-center gap-1.5 hover:text-white transition cursor-pointer">
+            <span>🔥 Только топовые (8+ баллов)</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-800 flex items-center gap-2">
+        <button onclick="resetAllFilters()" class="w-1/3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
+          Сброс
+        </button>
+        <button onclick="closeFiltersDrawer()" class="w-2/3 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition cursor-pointer">
+          Применить
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fixed Mobile Bottom Navigation Bar -->
+  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 border-t border-slate-800/90 backdrop-blur-xl px-2 sm:px-6 py-1.5 shadow-2xl">
+    <div class="max-w-md sm:max-w-xl mx-auto flex items-center justify-around text-xs">
+      <button onclick="setTabFromBottom('inbox')" id="bnav_inbox" class="bnav-btn flex flex-col items-center gap-0.5 py-1 px-3 text-indigo-400 font-semibold transition active:scale-95 cursor-pointer">
+        <div class="relative">
+          <i data-lucide="flame" class="w-5 h-5"></i>
+          <span id="bnavCount_inbox" class="hidden absolute -top-1 -right-2 text-[9px] px-1 py-0.2 rounded-full bg-indigo-500 text-white font-bold"></span>
+        </div>
+        <span class="text-[10px]">Свайпы</span>
+      </button>
+      <button onclick="setTabFromBottom('saved')" id="bnav_saved" class="bnav-btn flex flex-col items-center gap-0.5 py-1 px-3 text-slate-400 hover:text-white transition active:scale-95 cursor-pointer">
+        <div class="relative">
+          <i data-lucide="star" class="w-5 h-5"></i>
+          <span id="bnavCount_saved" class="hidden absolute -top-1 -right-2 text-[9px] px-1 py-0.2 rounded-full bg-amber-500 text-slate-950 font-bold"></span>
+        </div>
+        <span class="text-[10px]">В планах</span>
+      </button>
+      <button onclick="setTabFromBottom('applied')" id="bnav_applied" class="bnav-btn flex flex-col items-center gap-0.5 py-1 px-3 text-slate-400 hover:text-white transition active:scale-95 cursor-pointer">
+        <div class="relative">
+          <i data-lucide="send" class="w-5 h-5"></i>
+          <span id="bnavCount_applied" class="hidden absolute -top-1 -right-2 text-[9px] px-1 py-0.2 rounded-full bg-emerald-500 text-white font-bold"></span>
+        </div>
+        <span class="text-[10px]">Отклики</span>
+      </button>
+      <button onclick="setTabFromBottom('interview')" id="bnav_interview" class="bnav-btn flex flex-col items-center gap-0.5 py-1 px-3 text-slate-400 hover:text-white transition active:scale-95 cursor-pointer">
+        <div class="relative">
+          <i data-lucide="phone-call" class="w-5 h-5"></i>
+          <span id="bnavCount_interview" class="hidden absolute -top-1 -right-2 text-[9px] px-1 py-0.2 rounded-full bg-cyan-500 text-slate-950 font-bold"></span>
+        </div>
+        <span class="text-[10px]">Интервью</span>
+      </button>
+      <button onclick="openSettingsModal()" id="bnav_settings" class="bnav-btn flex flex-col items-center gap-0.5 py-1 px-3 text-slate-400 hover:text-white transition active:scale-95 cursor-pointer">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+        <span class="text-[10px]">Опции</span>
+      </button>
+    </div>
+  </nav>
 
   <!-- Cover Letter Drawer / Modal (Adaptive: centered modal on PC) -->
   <div id="coverLetterModal" onclick="if(event.target === this) closeCoverLetterModal()" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -935,6 +1169,293 @@
     let filterSource = 'all';// 'all', 'hh', 'habr', 'getmatch', 'remotive'
     let filterTopScoreOnly = false;
     let activeVacancyForModal = null;
+    let viewMode = 'tinder'; // 'tinder' (default) or 'list'
+    let currentTinderList = [];
+    let currentTinderIndex = 0;
+    let tinderHistory = [];
+
+    // Tinder Pointer & Drag State
+    let isPointerDown = false;
+    let startX = 0, startY = 0;
+    let currentX = 0, currentY = 0;
+
+    function onPointerDown(e) {
+      const card = document.getElementById('tinderCardTop');
+      if (!card) return;
+      if (e.target.closest('button, a, summary, details, input, textarea')) return;
+
+      isPointerDown = true;
+      startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+      currentX = startX;
+      currentY = startY;
+
+      card.classList.add('dragging');
+      if (card.setPointerCapture && e.pointerId !== undefined) {
+        try { card.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+    }
+
+    function onPointerMove(e) {
+      if (!isPointerDown) return;
+      const card = document.getElementById('tinderCardTop');
+      if (!card) return;
+
+      currentX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      currentY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+
+      const dx = currentX - startX;
+      const dy = currentY - startY;
+      const rot = dx * 0.08;
+
+      card.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
+
+      const stampLike = document.getElementById('stampLike');
+      const stampPass = document.getElementById('stampPass');
+      const stampApply = document.getElementById('stampApply');
+
+      if (stampLike && stampPass && stampApply) {
+        if (dy < -45 && Math.abs(dx) < 60) {
+          stampApply.style.opacity = Math.min(1, Math.abs(dy + 45) / 50);
+          stampLike.style.opacity = '0';
+          stampPass.style.opacity = '0';
+        } else if (dx > 25) {
+          stampLike.style.opacity = Math.min(1, (dx - 25) / 60);
+          stampPass.style.opacity = '0';
+          stampApply.style.opacity = '0';
+        } else if (dx < -25) {
+          stampPass.style.opacity = Math.min(1, (-dx - 25) / 60);
+          stampLike.style.opacity = '0';
+          stampApply.style.opacity = '0';
+        } else {
+          stampLike.style.opacity = '0';
+          stampPass.style.opacity = '0';
+          stampApply.style.opacity = '0';
+        }
+      }
+    }
+
+    function onPointerUp(e) {
+      if (!isPointerDown) return;
+      isPointerDown = false;
+      const card = document.getElementById('tinderCardTop');
+      if (!card) return;
+
+      card.classList.remove('dragging');
+      if (card.releasePointerCapture && e.pointerId !== undefined) {
+        try { card.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+
+      const dx = currentX - startX;
+      const dy = currentY - startY;
+
+      const stampLike = document.getElementById('stampLike');
+      const stampPass = document.getElementById('stampPass');
+      const stampApply = document.getElementById('stampApply');
+      if (stampLike) stampLike.style.opacity = '0';
+      if (stampPass) stampPass.style.opacity = '0';
+      if (stampApply) stampApply.style.opacity = '0';
+
+      if (dy < -80 && Math.abs(dx) < 70) {
+        card.classList.add('fly-up');
+        setTimeout(() => {
+          card.style.transform = '';
+          card.classList.remove('fly-up');
+          tinderLetter();
+        }, 260);
+      } else if (dx > 75) {
+        card.classList.add('fly-right');
+        setTimeout(() => {
+          card.style.transform = '';
+          card.classList.remove('fly-right');
+          tinderSwipe('right');
+        }, 260);
+      } else if (dx < -75) {
+        card.classList.add('fly-left');
+        setTimeout(() => {
+          card.style.transform = '';
+          card.classList.remove('fly-left');
+          tinderSwipe('left');
+        }, 260);
+      } else {
+        card.style.transform = '';
+      }
+    }
+
+    function setViewMode(mode) {
+      haptic();
+      viewMode = mode;
+      const tinderWrapper = document.getElementById('tinderDeckWrapper');
+      const listWrapper = document.getElementById('listViewWrapper');
+      const btnTinder = document.getElementById('btnModeTinder');
+      const btnList = document.getElementById('btnModeList');
+
+      if (viewMode === 'tinder' && currentTab === 'inbox') {
+        tinderWrapper?.classList.remove('hidden');
+        listWrapper?.classList.add('hidden');
+        if (btnTinder) {
+          btnTinder.className = 'px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition bg-indigo-600 text-white shadow-sm';
+        }
+        if (btnList) {
+          btnList.className = 'px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition text-slate-400 hover:text-white';
+        }
+        renderTinderDeck();
+      } else {
+        tinderWrapper?.classList.add('hidden');
+        listWrapper?.classList.remove('hidden');
+        if (btnList) {
+          btnList.className = 'px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition bg-indigo-600 text-white shadow-sm';
+        }
+        if (btnTinder) {
+          btnTinder.className = 'px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition text-slate-400 hover:text-white';
+        }
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function setTabFromBottom(tab) {
+      haptic();
+      document.querySelectorAll('.bnav-btn').forEach(b => {
+        b.classList.remove('text-indigo-400', 'font-semibold');
+        b.classList.add('text-slate-400');
+      });
+      const activeBnav = document.getElementById(`bnav_${tab}`);
+      if (activeBnav) {
+        activeBnav.classList.remove('text-slate-400');
+        activeBnav.classList.add('text-indigo-400', 'font-semibold');
+      }
+
+      if (tab === 'inbox') {
+        currentTab = 'inbox';
+        setViewMode('tinder');
+      } else {
+        switchTab(tab);
+        setViewMode('list');
+      }
+    }
+
+    function openFiltersDrawer() {
+      haptic();
+      const d = document.getElementById('filtersDrawer');
+      if (d) {
+        d.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    function closeFiltersDrawer() {
+      haptic();
+      const d = document.getElementById('filtersDrawer');
+      if (d) d.classList.add('hidden');
+    }
+
+    function syncSearchInputs(val) {
+      const topInp = document.getElementById('searchInput');
+      if (topInp) topInp.value = val;
+      const drawerClear = document.getElementById('clearSearchDrawerBtn');
+      if (drawerClear) {
+        if (val) drawerClear.classList.remove('hidden');
+        else drawerClear.classList.add('hidden');
+      }
+      applyFilters();
+    }
+
+    function resetAllFilters() {
+      haptic();
+      setRoleFilter('all');
+      setSourceFilter('all');
+      if (filterTopScoreOnly) toggleTopScore();
+      clearSearch();
+      const dInp = document.getElementById('searchInputDrawer');
+      if (dInp) dInp.value = '';
+      currentTinderIndex = 0;
+      closeFiltersDrawer();
+      showToast('Фильтры сброшены', 'info');
+    }
+
+    function tinderSwipe(direction) {
+      if (!currentTinderList || currentTinderIndex >= currentTinderList.length) return;
+      const v = currentTinderList[currentTinderIndex];
+      const card = document.getElementById('tinderCardTop');
+
+      if (direction === 'left') {
+        haptic('medium');
+        tinderHistory.push({ index: currentTinderIndex, id: v.id, prevStatus: statuses[v.id]?.status || 'inbox' });
+        if (card) {
+          card.classList.add('fly-left');
+          setTimeout(() => {
+            changeStatus(v.id, 'archived');
+            currentTinderIndex++;
+            renderTinderDeck();
+          }, 240);
+        } else {
+          changeStatus(v.id, 'archived');
+          currentTinderIndex++;
+          renderTinderDeck();
+        }
+      } else if (direction === 'right') {
+        haptic('success');
+        tinderHistory.push({ index: currentTinderIndex, id: v.id, prevStatus: statuses[v.id]?.status || 'inbox' });
+        if (card) {
+          card.classList.add('fly-right');
+          setTimeout(() => {
+            changeStatus(v.id, 'saved');
+            currentTinderIndex++;
+            renderTinderDeck();
+          }, 240);
+        } else {
+          changeStatus(v.id, 'saved');
+          currentTinderIndex++;
+          renderTinderDeck();
+        }
+      }
+    }
+
+    function tinderUndo() {
+      if (tinderHistory.length === 0) {
+        showToast('Нет действий для отмены', 'info');
+        return;
+      }
+      haptic('light');
+      const last = tinderHistory.pop();
+      changeStatus(last.id, last.prevStatus || 'inbox');
+      currentTinderIndex = Math.max(0, last.index);
+      renderTinderDeck();
+      showToast('Карточка возвращена ↩️', 'info');
+    }
+
+    function tinderLetter() {
+      if (!currentTinderList || currentTinderIndex >= currentTinderList.length) return;
+      const v = currentTinderList[currentTinderIndex];
+      openCoverLetter(v.id);
+    }
+
+    function tinderToggleDetails() {
+      haptic();
+      const det = document.getElementById('tinderCardDetails');
+      if (det) {
+        det.classList.toggle('hidden');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+      if (viewMode !== 'tinder' || currentTab !== 'inbox') return;
+
+      if (e.key === 'ArrowLeft') {
+        tinderSwipe('left');
+      } else if (e.key === 'ArrowRight') {
+        tinderSwipe('right');
+      } else if (e.key === 'ArrowUp') {
+        tinderLetter();
+      } else if (e.key === 'Backspace' || (e.ctrlKey && e.key === 'z')) {
+        tinderUndo();
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        tinderToggleDetails();
+      }
+    });
 
     // Загрузка данных
     async function loadData() {
@@ -994,6 +1515,21 @@
       setBadge('applied', stats.applied ?? 0);
       setBadge('interview', stats.interview ?? 0);
       setBadge('archived', stats.archived ?? 0);
+
+      const setBnavBadge = (tab, count) => {
+        const el = document.getElementById(`bnavCount_${tab}`);
+        if (!el) return;
+        if (count > 0) {
+          el.textContent = count;
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      };
+      setBnavBadge('inbox', stats.inbox ?? 0);
+      setBnavBadge('saved', stats.saved ?? 0);
+      setBnavBadge('applied', stats.applied ?? 0);
+      setBnavBadge('interview', stats.interview ?? 0);
     }
 
     // Навигация по табам
@@ -1026,6 +1562,26 @@
         }
       });
 
+      // Keep bottom nav button active states in sync
+      document.querySelectorAll('.bnav-btn').forEach(b => {
+        b.classList.remove('text-indigo-400', 'font-semibold');
+        b.classList.add('text-slate-400');
+      });
+      const activeBnav = document.getElementById(`bnav_${tab}`);
+      if (activeBnav) {
+        activeBnav.classList.remove('text-slate-400');
+        activeBnav.classList.add('text-indigo-400', 'font-semibold');
+      }
+
+      if (tab === 'inbox' && viewMode === 'tinder') {
+        document.getElementById('tinderDeckWrapper')?.classList.remove('hidden');
+        document.getElementById('listViewWrapper')?.classList.add('hidden');
+      } else {
+        document.getElementById('tinderDeckWrapper')?.classList.add('hidden');
+        document.getElementById('listViewWrapper')?.classList.remove('hidden');
+      }
+
+      currentTinderIndex = 0;
       applyFilters();
     }
 
@@ -1034,12 +1590,15 @@
       haptic();
       filterRole = role;
       document.querySelectorAll('.rf-btn').forEach(b => {
-        b.className = 'rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition';
+        b.className = 'rf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition cursor-pointer';
       });
-      const btn = document.getElementById(`rf_${role}`);
-      if (btn) {
-        btn.className = 'rf-btn px-3 py-1.5 rounded-xl border bg-indigo-600/20 border-indigo-500 text-indigo-300 font-semibold whitespace-nowrap transition';
-      }
+      const btns = [document.getElementById(`rf_${role}`), document.getElementById(`rf_drawer_${role}`)];
+      btns.forEach(btn => {
+        if (btn) {
+          btn.className = 'rf-btn px-3 py-1.5 rounded-xl border bg-indigo-600/20 border-indigo-500 text-indigo-300 font-semibold whitespace-nowrap transition cursor-pointer';
+        }
+      });
+      currentTinderIndex = 0;
       applyFilters();
     }
 
@@ -1047,25 +1606,33 @@
       haptic();
       filterSource = src;
       document.querySelectorAll('.sf-btn').forEach(b => {
-        b.className = 'sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition';
+        b.className = 'sf-btn px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap hover:text-white transition cursor-pointer';
       });
-      const btn = document.getElementById(`sf_${src}`);
-      if (btn) {
-        btn.className = 'sf-btn px-3 py-1.5 rounded-xl border bg-slate-800 border-slate-700 text-slate-300 font-semibold whitespace-nowrap transition';
-      }
+      const btns = [document.getElementById(`sf_${src}`), document.getElementById(`sf_drawer_${src}`)];
+      btns.forEach(btn => {
+        if (btn) {
+          btn.className = 'sf-btn px-3 py-1.5 rounded-xl border bg-slate-800 border-slate-700 text-slate-300 font-semibold whitespace-nowrap transition cursor-pointer';
+        }
+      });
+      currentTinderIndex = 0;
       applyFilters();
     }
 
     function toggleTopScore() {
       haptic();
       filterTopScoreOnly = !filterTopScoreOnly;
-      const btn = document.getElementById('scoreToggleBtn');
-      if (filterTopScoreOnly) {
-        btn.className = 'px-3 py-1.5 rounded-xl border border-amber-500/50 bg-amber-500/20 text-amber-300 font-semibold whitespace-nowrap flex items-center gap-1.5';
-      } else {
-        btn.className = 'px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap flex items-center gap-1.5 hover:text-white transition';
-      }
+      const btns = [document.getElementById('scoreToggleBtn'), document.getElementById('scoreDrawerBtn')];
+      btns.forEach(btn => {
+        if (!btn) return;
+        if (filterTopScoreOnly) {
+          btn.className = 'px-3.5 py-1.5 rounded-xl border border-amber-500/50 bg-amber-500/20 text-amber-300 font-semibold whitespace-nowrap flex items-center gap-1.5 cursor-pointer';
+        } else {
+          btn.className = 'px-3.5 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium whitespace-nowrap flex items-center gap-1.5 hover:text-white transition cursor-pointer';
+        }
+      });
+      currentTinderIndex = 0;
       applyFilters();
+    }
     }
 
     function clearSearch() {
@@ -1123,7 +1690,32 @@
         return true;
       });
 
+      currentTinderList = filtered;
+      if (currentTinderIndex >= currentTinderList.length) currentTinderIndex = 0;
+
+      // Update active filters badge & pill
+      let activeCount = 0;
+      if (filterRole !== 'all') activeCount++;
+      if (filterSource !== 'all') activeCount++;
+      if (filterTopScoreOnly) activeCount++;
+      if (searchVal) activeCount++;
+
+      const bBadge = document.getElementById('activeFiltersBadge');
+      const bPill = document.getElementById('activeFilterPill');
+      if (bBadge) {
+        if (activeCount > 0) {
+          bBadge.textContent = activeCount;
+          bBadge.classList.remove('hidden');
+        } else {
+          bBadge.classList.add('hidden');
+        }
+      }
+      if (bPill) {
+        bPill.textContent = activeCount > 0 ? `Фильтры (${activeCount})` : 'Фильтры';
+      }
+
       renderVacancies(filtered);
+      renderTinderDeck();
     }
 
     function escapeHtml(str) {
@@ -1419,6 +2011,187 @@
       });
 
       if (window.lucide) lucide.createIcons();
+    }
+
+    // Отрисовка колоды свайпов (Tinder Deck)
+    function renderTinderDeck() {
+      const stack = document.getElementById('tinderCardStack');
+      const counterText = document.getElementById('tinderCounterText');
+      if (!stack) return;
+
+      const list = currentTinderList;
+      if (!list || list.length === 0 || currentTinderIndex >= list.length) {
+        stack.innerHTML = `
+          <div id="tinderCardEmpty" class="absolute inset-0 rounded-3xl bg-slate-900/95 border border-slate-800 p-6 sm:p-8 flex flex-col items-center justify-center text-center shadow-2xl">
+            <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-500/20 to-emerald-500/20 text-indigo-400 flex items-center justify-center mb-4 border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
+              <i data-lucide="check-check" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white mb-1.5">Все вакансии разобраны! 🎉</h3>
+            <p class="text-xs text-slate-400 max-w-xs mb-5 leading-relaxed">В текущей выборке больше нет новых вакансий. Сбросьте фильтры или перейдите к сохранённым откликам.</p>
+            <div class="flex items-center gap-2.5">
+              <button onclick="resetAllFilters()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white transition active:scale-95 cursor-pointer">
+                Сбросить фильтры
+              </button>
+              <button onclick="setTabFromBottom('saved')" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-xs font-semibold text-white transition active:scale-95 shadow-lg shadow-indigo-600/30 cursor-pointer">
+                В планах ⭐
+              </button>
+            </div>
+          </div>
+        `;
+        if (counterText) counterText.textContent = '0 вакансий';
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      if (counterText) {
+        counterText.textContent = `${currentTinderIndex + 1} из ${list.length}`;
+      }
+
+      const vTop = list[currentTinderIndex];
+      const vNext = list[currentTinderIndex + 1];
+
+      let nextCardHtml = '';
+      if (vNext) {
+        const nextScore = Number(vNext.match_score || vNext.analysis?.match_score || 7);
+        nextCardHtml = `
+          <div id="tinderCardNext" class="absolute inset-0 rounded-3xl bg-slate-900/80 border border-slate-800/80 p-5 flex flex-col justify-between shadow-xl scale-[0.94] translate-y-3 opacity-60 pointer-events-none transition-all">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-400 truncate max-w-[200px]">${escapeHtml(vNext.company || '')}</span>
+              <span class="text-xs font-bold text-indigo-400">🔥 ${nextScore}/10</span>
+            </div>
+            <h4 class="text-base font-bold text-slate-300 truncate">${escapeHtml(vNext.title || '')}</h4>
+            <div class="text-xs text-slate-500">Следующая в очереди...</div>
+          </div>
+        `;
+      }
+
+      const score = Number(vTop.match_score || vTop.analysis?.match_score || 7);
+      const isTop = score >= 9;
+      const isStrong = score >= 8;
+      const topBorder = isTop
+        ? 'border-emerald-500/40 shadow-2xl shadow-emerald-500/10 bg-gradient-to-b from-slate-900 via-slate-900/95 to-slate-950'
+        : (isStrong ? 'border-indigo-500/40 shadow-xl shadow-indigo-500/5 bg-gradient-to-b from-slate-900 to-slate-950' : 'border-slate-800/90 bg-slate-900/95');
+
+      const safeId = escapeHtml(String(vTop.id || ''));
+      const safeLink = sanitizeUrl(vTop.link);
+      const safeTitle = escapeHtml(vTop.title || '');
+      const safeCompany = escapeHtml(vTop.company || '');
+      const safeLocation = escapeHtml(vTop.location || '');
+      const safeSalary = escapeHtml(vTop.salary || '');
+      const safeVerdict = escapeHtml(vTop.analysis?.verdict || '');
+      const safeRecom = escapeHtml(vTop.analysis?.recommendation || '');
+      const safeEduWarn = escapeHtml(vTop.analysis?.education_warning || '');
+      const rawDesc = vTop.structured_description || vTop.description || '';
+      const safeDesc = escapeHtml(rawDesc);
+
+      const role = vTop.role || 'java';
+      let roleBadge = `<span class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">☕ Java</span>`;
+      if (role === 'vpn_dev') roleBadge = `<span class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">🛡️ VPN</span>`;
+      else if (role === 'java_ai') roleBadge = `<span class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-violet-500/10 text-violet-400 border border-violet-500/20">🤖 AI</span>`;
+      else if (role === 'backend' || role === 'python_dev') roleBadge = `<span class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">⚡ Backend</span>`;
+      else if (role === 'fullstack_js' || role === 'frontend') roleBadge = `<span class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-pink-500/10 text-pink-300 border border-pink-500/20">💻 Frontend</span>`;
+
+      let sourceBadge = `<span class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-red-500/10 text-red-400 border border-red-500/20">🔴 HH</span>`;
+      if (vTop.source === 'habr') sourceBadge = `<span class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">🔵 Хабр</span>`;
+      else if (vTop.source === 'telegram') sourceBadge = `<span class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">📢 TG</span>`;
+      else if (vTop.source === 'superjob') sourceBadge = `<span class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">💼 SJ</span>`;
+      else if (vTop.source === 'getmatch') sourceBadge = `<span class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">🟣 GM</span>`;
+      else if (vTop.source === 'remotive') sourceBadge = `<span class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🟢 Remote</span>`;
+
+      let scorePill = `<span class="px-2.5 py-1 rounded-xl text-xs font-black border bg-indigo-500/20 text-indigo-300 border-indigo-500/30">🔥 ${score}/10</span>`;
+      if (isTop) scorePill = `<span class="px-2.5 py-1 rounded-xl text-xs font-black border bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/10">🔥 ${score}/10 ТОП</span>`;
+      else if (isStrong) scorePill = `<span class="px-2.5 py-1 rounded-xl text-xs font-black border bg-amber-500/20 text-amber-300 border-amber-500/30">⚡ ${score}/10</span>`;
+
+      const topCardHtml = `
+        <div id="tinderCardTop" class="tinder-card absolute inset-0 rounded-3xl ${topBorder} p-5 sm:p-6 flex flex-col justify-between shadow-2xl cursor-grab active:cursor-grabbing overflow-hidden">
+
+          ${isTop ? '<div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-500"></div>' : ''}
+
+          <!-- Stamp Badges Overlay -->
+          <div id="stampLike" class="stamp-badge absolute top-6 right-6 border-4 border-emerald-400 text-emerald-400 font-black text-xl px-4 py-1 rounded-2xl rotate-12 opacity-0 shadow-lg bg-slate-950/90 z-20">В ПЛАНЫ ⭐</div>
+          <div id="stampPass" class="stamp-badge absolute top-6 left-6 border-4 border-rose-500 text-rose-500 font-black text-xl px-4 py-1 rounded-2xl -rotate-12 opacity-0 shadow-lg bg-slate-950/90 z-20">ПРОПУСК ❌</div>
+          <div id="stampApply" class="stamp-badge absolute top-6 left-1/2 -translate-x-1/2 border-4 border-indigo-400 text-indigo-400 font-black text-base px-4 py-1 rounded-2xl opacity-0 shadow-lg bg-slate-950/90 z-20">ОТКЛИК 🚀</div>
+
+          <!-- Top Meta -->
+          <div>
+            <div class="flex items-center justify-between gap-1 mb-2">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${roleBadge}
+                ${sourceBadge}
+                ${safeLocation ? `<span class="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-800 text-slate-300 flex items-center gap-1"><i data-lucide="map-pin" class="w-2.5 h-2.5 text-slate-400"></i> ${safeLocation}</span>` : ''}
+              </div>
+              ${scorePill}
+            </div>
+
+            <!-- Title & Company -->
+            <h3 class="text-lg sm:text-xl font-black text-white hover:text-indigo-400 transition cursor-pointer leading-tight mb-1" onclick="openLink('${safeLink}')">
+              ${safeTitle}
+            </h3>
+            <div class="text-xs text-slate-400 flex items-center gap-2 flex-wrap mb-2">
+              <span class="flex items-center gap-1 font-semibold text-slate-300"><i data-lucide="building-2" class="w-3.5 h-3.5 text-slate-500"></i> ${safeCompany}</span>
+              ${safeSalary ? `<span class="text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20"><i data-lucide="banknote" class="w-3.5 h-3.5"></i> ${safeSalary}</span>` : ''}
+            </div>
+
+            <!-- Stack tags -->
+            ${(vTop.stack && vTop.stack.length > 0) ? `
+              <div class="flex items-center gap-1 flex-wrap my-2.5">
+                ${vTop.stack.slice(0, 6).map(s => getTechBadge(s)).join('')}
+              </div>
+            ` : ''}
+
+            <!-- AI Verdict Box -->
+            ${safeVerdict ? `
+              <div class="my-2 p-3 rounded-2xl bg-gradient-to-br from-indigo-950/30 via-slate-950/70 to-slate-950/90 border border-indigo-500/20 border-l-4 border-l-indigo-500 text-xs leading-relaxed text-slate-200 shadow-inner">
+                <div class="font-bold text-indigo-300 flex items-center gap-1 mb-1">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  <span>AI Вердикт</span>
+                </div>
+                <p>${safeVerdict}</p>
+                ${safeRecom ? `<div class="mt-1.5 text-sky-300/90 text-[11px] font-medium flex items-center gap-1">💡 <span>${safeRecom}</span></div>` : ''}
+                ${safeEduWarn ? `<div class="mt-1 text-amber-300 text-[11px] flex items-center gap-1">⚠️ <span>${safeEduWarn}</span></div>` : ''}
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Bottom Expandable Info or Link -->
+          <div class="pt-2 border-t border-slate-800/70 flex items-center justify-between text-xs text-slate-400">
+            <button onclick="tinderToggleDetails()" class="hover:text-indigo-400 flex items-center gap-1 font-medium transition cursor-pointer">
+              <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-400"></i>
+              <span id="tinderDetailsToggleText">Описание и требования</span>
+            </button>
+            <a href="${safeLink}" target="_blank" onclick="event.preventDefault(); openLink('${safeLink}')" class="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition flex items-center gap-1" title="Открыть вакансию в браузере">
+              <span class="text-[11px]">На сайт</span>
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            </a>
+          </div>
+
+          <!-- Expandable Details Overlay inside card -->
+          <div id="tinderCardDetails" class="hidden absolute inset-0 z-10 bg-slate-950/95 backdrop-blur-md p-5 flex flex-col justify-between rounded-3xl">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+              <span class="text-xs font-bold text-indigo-400 flex items-center gap-1.5"><i data-lucide="file-text" class="w-4 h-4"></i> Описание вакансии</span>
+              <button onclick="tinderToggleDetails()" class="p-1 text-slate-400 hover:text-white cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <div class="my-3 overflow-y-auto custom-scroll text-xs text-slate-300 leading-relaxed font-sans whitespace-pre-line flex-1 pr-1">
+              ${safeDesc || 'Описание вакансии не предоставлено.'}
+            </div>
+            <button onclick="tinderToggleDetails()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition cursor-pointer">
+              Закрыть описание
+            </button>
+          </div>
+
+        </div>
+      `;
+
+      stack.innerHTML = nextCardHtml + topCardHtml;
+      if (window.lucide) lucide.createIcons();
+
+      const topCard = document.getElementById('tinderCardTop');
+      if (topCard) {
+        topCard.addEventListener('pointerdown', onPointerDown);
+        topCard.addEventListener('pointermove', onPointerMove);
+        topCard.addEventListener('pointerup', onPointerUp);
+        topCard.addEventListener('pointercancel', onPointerUp);
+      }
     }
 
     // Изменение статуса
