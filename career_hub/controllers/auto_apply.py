@@ -54,15 +54,15 @@ def get_miniapp_url() -> str:
     cfg_fn = _get_bot_ref("load_config", None)
     if cfg_fn:
         try:
-            return cfg_fn().get("miniapp_url") or os.environ.get("MINIAPP_URL") or "https://jobs.shadowkek.space/"
+            return cfg_fn().get("miniapp_url") or os.environ.get("MINIAPP_URL") or "http://localhost:8088/"
         except Exception:
             pass
-    return os.environ.get("MINIAPP_URL") or "https://jobs.shadowkek.space/"
+    return os.environ.get("MINIAPP_URL") or "http://localhost:8088/"
 
 
 def get_hh_headers(access_token: str) -> dict:
     cfg_fn = _get_bot_ref("load_config", None)
-    contact = "nikita@shadowkek.space"
+    contact = "candidate@example.com"
     if cfg_fn:
         try:
             contact = cfg_fn().get("contact_email") or os.environ.get("CONTACT_EMAIL") or contact
@@ -851,7 +851,7 @@ def send_email_application(to_email: str, vacancy_title: str, cover_letter: str,
     user = (cfg.get("smtp_user") or "").strip()
     pwd = (cfg.get("smtp_password") or "").strip()
     use_ssl = bool(cfg.get("smtp_ssl", True))
-    from_name = (cfg.get("smtp_from_name") or "Никита Фролов").strip()
+    from_name = (cfg.get("smtp_from_name") or cfg.get("candidate_name") or "Candidate").strip()
     contact_email = (cfg.get("contact_email") or user).strip()
 
     if not host or not user or not pwd:
@@ -874,9 +874,16 @@ def send_email_application(to_email: str, vacancy_title: str, cover_letter: str,
     alt = MIMEMultipart("alternative")
     alt.attach(MIMEText(cover_letter, "plain", "utf-8"))
 
-    port_url = cfg.get("portfolio_url") or "https://park.shadowkek.space"
+    port_url = (cfg.get("portfolio_url") or "").strip()
     port_display = port_url.replace("https://", "").replace("http://", "").rstrip("/")
-    res_tunnel = cfg.get("resume_quick_tunnel_url") or "https://south-tomato-therapist-minimum.trycloudflare.com/"
+    res_tunnel = (cfg.get("resume_quick_tunnel_url") or "").strip()
+
+    footer_links = [f"Контакты: {html.escape(contact_email)}"]
+    if res_tunnel:
+        footer_links.append(f'Портфолио/Резюме: <a href="{html.escape(res_tunnel)}" style="color: #4f46e5;">онлайн-резюме</a>')
+    if port_url:
+        footer_links.append(f'Проект (деплой): <a href="{html.escape(port_url)}" style="color: #4f46e5;">{html.escape(port_display)}</a>')
+    footer_links_html = " | ".join(footer_links)
 
     html_content = f"""<html>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b;">
@@ -885,7 +892,7 @@ def send_email_application(to_email: str, vacancy_title: str, cover_letter: str,
         <div style="white-space: pre-line; font-size: 15px; color: #334155;">{html.escape(cover_letter)}</div>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
         <p style="font-size: 13px; color: #64748b; margin-bottom: 4px;">С уважением,<br><strong>{html.escape(from_name)}</strong></p>
-        <p style="font-size: 12px; color: #94a3b8; margin: 0;">Контакты: {html.escape(contact_email)} | Портфолио/Резюме: <a href="{html.escape(res_tunnel)}" style="color: #4f46e5;">онлайн-резюме</a> | Проект (деплой): <a href="{html.escape(port_url)}" style="color: #4f46e5;">{html.escape(port_display)}</a></p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 0;">{footer_links_html}</p>
     </div>
 </body>
 </html>"""

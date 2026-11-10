@@ -505,8 +505,8 @@ def telegram_updates_worker():
                             statuses = _get_bot_ref("load_statuses", load_statuses)()
                             applied_count = sum(1 for s in statuses.values() if s.get("status") == "applied")
 
-                            resume_tunnel = cfg.get("resume_quick_tunnel_url") or "https://south-tomato-therapist-minimum.trycloudflare.com/"
-                            portfolio_site = cfg.get("portfolio_url") or "https://park.shadowkek.space"
+                            resume_tunnel = cfg.get("resume_quick_tunnel_url") or "Не указано"
+                            portfolio_site = cfg.get("portfolio_url") or "Не указано"
 
                             text = (
                                 f"⚙️ <b>Центр управления Career Assistant</b>\n\n"
@@ -826,8 +826,8 @@ def telegram_updates_worker():
 
                             hh_status = "🟢 Веб-сессия активна" if hh_cookie else ("🟢 API подключён" if hh_tok else "⚪ Не подключён")
 
-                            resume_tunnel = cfg.get("resume_quick_tunnel_url") or "https://south-tomato-therapist-minimum.trycloudflare.com/"
-                            portfolio_site = cfg.get("portfolio_url") or "https://park.shadowkek.space"
+                            resume_tunnel = cfg.get("resume_quick_tunnel_url") or "Не указано"
+                            portfolio_site = cfg.get("portfolio_url") or "Не указано"
 
                             welcome_text = (
                                 f"👋 <b>Добро пожаловать в Career Hub Bot!</b>\n\n"

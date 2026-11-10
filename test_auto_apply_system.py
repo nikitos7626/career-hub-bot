@@ -22,7 +22,18 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         bot.CONFIG_FILE = os.path.join(self.test_data_dir, "test_config.json")
         bot._config_cache = None
         os.environ["RESUME_QUICK_TUNNEL_URL"] = "https://demo-resume.trycloudflare.com/"
+        os.environ["PORTFOLIO_URL"] = "https://demo-portfolio.example.com"
         bot.DEFAULT_CONFIG["resume_quick_tunnel_url"] = "https://demo-resume.trycloudflare.com/"
+        bot.DEFAULT_CONFIG["portfolio_url"] = "https://demo-portfolio.example.com"
+        bot.DEFAULT_CONFIG["project_links"] = {
+            "java": [{"label": "Репозиторий бэкенда", "url": "https://github.com/example/java-backend"}],
+            "python_dev": [{"label": "Проект на Python", "url": "https://github.com/example/python-api"}],
+            "ai_dev": [{"label": "Проект по ИИ (ML/NLP)", "url": "https://github.com/example/ai-pipeline"}],
+            "fullstack_js": [
+                {"label": "Репозиторий фронта", "url": "https://github.com/example/web-client"},
+                {"label": "Репозиторий бэка", "url": "https://github.com/example/web-server"},
+            ],
+        }
 
     def tearDown(self):
         import shutil
@@ -438,14 +449,14 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
     def test_check_hh_web_cookie_valid(self, mock_get):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.text = '<html><div data-qa="profile-name">Никита Фролов</div><a href="/resume/b81ca639ff1137b70d0039ed1f57755649766f">Резюме</a></html>'
+        mock_resp.text = '<html><div data-qa="profile-name">Иван Иванов</div><a href="/resume/b81ca639ff1137b70d0039ed1f57755649766f">Резюме</a></html>'
         mock_get.return_value = mock_resp
 
-        cookie = "__ddg1_=xyz; _xsrf=testxsrf; redirect_host=volgograd.hh.ru"
+        cookie = "__ddg1_=xyz; _xsrf=testxsrf; redirect_host=hh.ru"
         prof = bot.check_hh_web_cookie(cookie)
         self.assertIsNotNone(prof)
         self.assertTrue(prof["ok"])
-        self.assertEqual(prof["name"], "Никита Фролов")
+        self.assertEqual(prof["name"], "Иван Иванов")
         self.assertIn("b81ca639ff1137b70d0039ed1f57755649766f", prof["resumes"])
 
     @patch("bot.requests.post")
@@ -486,8 +497,8 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         self.assertIsNotNone(letter)
         self.assertIn("https://demo-resume.trycloudflare.com/", letter)
         self.assertIn(bot.get_portfolio_url(), letter)
-        self.assertIn("https://github.com/nikitos7626/park-client", letter)
-        self.assertIn("https://github.com/nikitos7626/Park-server", letter)
+        self.assertIn("https://github.com/example/web-client", letter)
+        self.assertIn("https://github.com/example/web-server", letter)
         self.assertIn("React 18", letter)
         self.assertIn("Готов выполнить тестовое задание", letter)
 
@@ -633,22 +644,22 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         letter_fs = bot.generate_cover_letter("dummy_key", "invalid_model", v_fs)
         self.assertIn("https://demo-resume.trycloudflare.com", letter_fs)
         self.assertIn(bot.get_portfolio_url(), letter_fs)
-        self.assertIn("https://github.com/nikitos7626/park-client", letter_fs)
-        self.assertIn("https://github.com/nikitos7626/Park-server", letter_fs)
+        self.assertIn("https://github.com/example/web-client", letter_fs)
+        self.assertIn("https://github.com/example/web-server", letter_fs)
 
         # Java fallback letter
         v_java = {"title": "Junior Java Developer", "company": "Acme", "role": "java"}
         letter_java = bot.generate_cover_letter("dummy_key", "invalid_model", v_java)
         self.assertIn("https://demo-resume.trycloudflare.com", letter_java)
         self.assertIn(bot.get_portfolio_url(), letter_java)
-        self.assertIn("https://github.com/nikitos7626/BackendSpringBlog", letter_java)
+        self.assertIn("https://github.com/example/java-backend", letter_java)
 
         # AI & LLM fallback letter with pet project
         v_ai = {"title": "AI Engineer (LLM / RAG)", "company": "NeuroTech", "role": "ai_dev"}
         letter_ai = bot.generate_cover_letter("dummy_key", "invalid_model", v_ai)
         self.assertIn("https://demo-resume.trycloudflare.com", letter_ai)
         self.assertIn(bot.get_portfolio_url(), letter_ai)
-        self.assertIn("https://github.com/nikitos7626/mvideo-nlp", letter_ai)
+        self.assertIn("https://github.com/example/ai-pipeline", letter_ai)
         self.assertIn("Готов выполнить тестовое задание", letter_ai)
 
         # Python Backend fallback letter with pet projects
@@ -656,8 +667,7 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
         letter_py = bot.generate_cover_letter("dummy_key", "invalid_model", v_py)
         self.assertIn("https://demo-resume.trycloudflare.com", letter_py)
         self.assertIn(bot.get_portfolio_url(), letter_py)
-        self.assertIn("https://github.com/nikitos7626/mvideo-nlp", letter_py)
-        self.assertIn("https://github.com/nikitos7626/ExCalendar", letter_py)
+        self.assertIn("https://github.com/example/python-api", letter_py)
         self.assertIn("Готов выполнить тестовое задание", letter_py)
 
     def test_quick_prefilter_target_vs_unwanted_comprehensive(self):
@@ -789,11 +799,11 @@ class TestAutoApplyAndNotifications(unittest.TestCase):
 class TestSecurityAndHardening(unittest.TestCase):
     def test_one_time_token_atomic_single_use(self):
         from career_hub.views.auth_view import create_one_time_token, consume_one_time_token
-        token = create_one_time_token(1139872910)
+        token = create_one_time_token(123456789)
         self.assertTrue(bool(token))
         # First consumption must succeed
         uid = consume_one_time_token(token)
-        self.assertEqual(uid, 1139872910)
+        self.assertEqual(uid, 123456789)
         # Second consumption must fail (replay protection)
         self.assertIsNone(consume_one_time_token(token))
         # Invalid token must return None
@@ -824,11 +834,11 @@ class TestSecurityAndHardening(unittest.TestCase):
         bot_token = "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
         secret_key = hmac.new(b"WebAppData", bot_token.encode("utf-8"), hashlib.sha256).digest()
 
-        def make_init_data(auth_date, user_id=1139872910):
+        def make_init_data(auth_date, user_id=123456789):
             params = {
                 "auth_date": str(auth_date),
                 "query_id": "AAHdF6IQAAAAAN0XohDhrOrc",
-                "user": json.dumps({"id": user_id, "first_name": "Nikita"})
+                "user": json.dumps({"id": user_id, "first_name": "Candidate"})
             }
             data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(params.items()))
             h = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -841,7 +851,7 @@ class TestSecurityAndHardening(unittest.TestCase):
         valid_data = make_init_data(now - 30)
         res = validate_telegram_init_data(valid_data, bot_token)
         self.assertIsNotNone(res)
-        self.assertEqual(res["id"], 1139872910)
+        self.assertEqual(res["id"], 123456789)
 
         # Expired signature (25 hours ago): rejected
         expired_data = make_init_data(now - 90000)
@@ -854,7 +864,7 @@ class TestSecurityAndHardening(unittest.TestCase):
         # Missing auth_date: rejected
         params_no_date = {
             "query_id": "AAHdF6IQAAAAAN0XohDhrOrc",
-            "user": json.dumps({"id": 1139872910, "first_name": "Nikita"})
+            "user": json.dumps({"id": 123456789, "first_name": "Candidate"})
         }
         dcs = "\n".join(f"{k}={v}" for k, v in sorted(params_no_date.items()))
         params_no_date["hash"] = hmac.new(secret_key, dcs.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -871,7 +881,6 @@ class TestSecurityAndHardening(unittest.TestCase):
                 auth_view._BOT_USERNAME_CACHE = None
                 res = get_bot_username()
                 self.assertEqual(res, "")
-                self.assertNotIn("asistant7626_bot", res)
 
         # When configured in config
         with patch.dict(os.environ, {"BOT_USERNAME": ""}):
@@ -1096,9 +1105,28 @@ class TestSecurityAndHardening(unittest.TestCase):
         self.assertIn("MutationObserver", html)
         self.assertIn("Доступ заблокирован", html)
 
-        # 5. Ensure no hardcoded private tokens or emails
-        self.assertNotIn("asistant7626_bot", html)
-        self.assertNotIn("shadowkek.space", html)
+        # 5. Ensure no hardcoded private domains or unexpected external URLs in HTML
+        import re
+        allowed_prefixes = (
+            "https://telegram.org/",
+            "https://cdn.tailwindcss.com",
+            "https://unpkg.com/",
+            "https://hh.ru",
+            "https://career.habr.com",
+            "https://superjob.ru",
+            "https://www.superjob.ru",
+            "https://getmatch.ru",
+            "https://rabota.ru",
+            "https://www.rabota.ru",
+            "https://t.me/",
+        )
+        for url_hit in re.findall(r'https?://[^"\'\s<>`]+', html):
+            if url_hit.startswith("https://t.me/") and ("bot" in url_hit.lower()):
+                self.fail(f"Unexpected hardcoded bot URL in miniapp_index.html: {url_hit}")
+            self.assertTrue(
+                url_hit.startswith(allowed_prefixes),
+                f"Unexpected hardcoded URL in miniapp_index.html: {url_hit}"
+            )
 
     @patch("smtplib.SMTP_SSL")
     def test_send_email_crlf_and_path_traversal_protection(self, mock_smtp):
@@ -1109,8 +1137,8 @@ class TestSecurityAndHardening(unittest.TestCase):
             "smtp_user": "test@example.com",
             "smtp_password": "secret_password",
             "smtp_ssl": True,
-            "smtp_from_name": "Никита\r\nBcc: evil@attacker.com",
-            "contact_email": "nikita@example.com\r\nX-Injected: True",
+            "smtp_from_name": "Candidate\r\nBcc: evil@attacker.com",
+            "contact_email": "candidate@example.com\r\nX-Injected: True",
             "resume_pdf_path": "../../etc/passwd"
         }
         mock_server = MagicMock()
@@ -1571,11 +1599,11 @@ class TestMultiPlatformAutoApply(unittest.TestCase):
         self.assertNotEqual(contacts["username"], "it_jobs_channel")
 
     def test_build_telegram_recruiter_link(self):
-        letter = "Здравствуйте! Меня зовут Никита, откликаюсь на вакансию."
+        letter = "Здравствуйте! Меня зовут Иван, откликаюсь на вакансию."
         res = bot.build_telegram_recruiter_link("hr_manager", letter)
         self.assertTrue(res["tg_url"].startswith("tg://resolve?domain=hr_manager&text="))
         self.assertTrue(res["web_url"].startswith("https://t.me/hr_manager?text="))
-        self.assertIn("%D0%9D%D0%B8%D0%BA%D0%B8%D1%82%D0%B0", res["tg_url"])
+        self.assertIn("%D0%98%D0%B2%D0%B0%D0%BD", res["tg_url"])
 
     def test_apply_telegram_vacancy(self):
         res = bot.apply_telegram_vacancy("tg_channel_123", "Письмо", "recruiter_job")
@@ -1592,13 +1620,13 @@ class TestMultiPlatformAutoApply(unittest.TestCase):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
-            "objects": [{"id": 101, "name": "Никита Фролов", "profession": "Java Developer"}]
+            "objects": [{"id": 101, "name": "Иван Иванов", "profession": "Java Developer"}]
         }
         mock_get.return_value = mock_resp
 
         res = bot.check_superjob_session(token="valid_sj_token")
         self.assertTrue(res["ok"])
-        self.assertEqual(res["user_name"], "Никита Фролов")
+        self.assertEqual(res["user_name"], "Иван Иванов")
         self.assertEqual(len(res["resumes"]), 1)
 
     @patch("bot.requests.get")
@@ -1641,12 +1669,12 @@ class TestMultiPlatformAutoApply(unittest.TestCase):
     def test_check_getmatch_session_valid(self, mock_get):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.json.return_value = {"id": 99, "name": "Никита Разработчик"}
+        mock_resp.json.return_value = {"id": 99, "name": "Иван Разработчик"}
         mock_get.return_value = mock_resp
 
         res = bot.check_getmatch_session(token_or_cookie="gm_token_abc")
         self.assertTrue(res["ok"])
-        self.assertEqual(res["user_name"], "Никита Разработчик")
+        self.assertEqual(res["user_name"], "Иван Разработчик")
 
     @patch("bot.requests.post")
     def test_apply_getmatch_vacancy_success(self, mock_post):
@@ -1695,7 +1723,7 @@ class TestMultiPlatformAutoApply(unittest.TestCase):
             "smtp_user": "candidate@yandex.ru",
             "smtp_password": "app_password_secret",
             "smtp_ssl": True,
-            "smtp_from_name": "Никита Фролов",
+            "smtp_from_name": "Иван Иванов",
             "contact_email": "candidate@yandex.ru"
         }
         res = bot.send_email_application("hr@company.com", "Junior Java Dev", "Здравствуйте, мое резюме...", smtp_config=smtp_cfg)
@@ -1711,12 +1739,12 @@ class TestMultiPlatformAutoApply(unittest.TestCase):
     def test_check_rabota_session_valid(self, mock_get):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.json.return_value = {"id": 12, "name": "Никита"}
+        mock_resp.json.return_value = {"id": 12, "name": "Иван"}
         mock_get.return_value = mock_resp
 
         res = bot.check_rabota_session(cookie_or_token="rabota_sess=abc")
         self.assertTrue(res["ok"])
-        self.assertEqual(res["user_name"], "Никита")
+        self.assertEqual(res["user_name"], "Иван")
 
     @patch("bot.requests.post")
     def test_apply_rabota_vacancy_success(self, mock_post):

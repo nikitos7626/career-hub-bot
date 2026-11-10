@@ -465,10 +465,10 @@ class MiniAppRequestHandler(BaseHTTPRequestHandler):
                 "smtp_host": smtp_host,
                 "smtp_port": cfg.get("smtp_port", 465),
                 "smtp_user": smtp_user,
-                "smtp_from_name": cfg.get("smtp_from_name", "Никита Фролов"),
-                "contact_email": cfg.get("contact_email", "nikita@shadowkek.space"),
-                "resume_quick_tunnel_url": cfg.get("resume_quick_tunnel_url", "https://south-tomato-therapist-minimum.trycloudflare.com/"),
-                "portfolio_url": cfg.get("portfolio_url", "https://park.shadowkek.space"),
+                "smtp_from_name": cfg.get("smtp_from_name", "Candidate"),
+                "contact_email": cfg.get("contact_email", "candidate@example.com"),
+                "resume_quick_tunnel_url": cfg.get("resume_quick_tunnel_url", ""),
+                "portfolio_url": cfg.get("portfolio_url", ""),
                 "total_vacancies": len(cache),
                 "total_applied": applied_count
             }

@@ -11,7 +11,7 @@ import time
 import html
 import logging
 import requests
-from career_hub.models.config import load_config
+from career_hub.models.config import load_config, CANDIDATE_PROFILE
 from career_hub.models.vacancy import clean_html
 
 logger = logging.getLogger("career_hub.ai")
@@ -26,20 +26,13 @@ def analyze_vacancy_with_groq(api_key: str, model: str, title: str, company: str
     }
 
     short_desc = description[:1800] if description else ""
+    cfg_data = load_config()
+    candidate_profile = (cfg_data.get("candidate_profile") or CANDIDATE_PROFILE).strip()
 
     prompt = f"""
-Ты — персональный карьерный ассистент и технический рекрутер для начинающего IT-специалиста Никиты (21 год).
+Ты — персональный карьерный ассистент и технический рекрутер для IT-специалиста.
 
-Профиль кандидата:
-- Образование: Неоконченное высшее (технический ВУЗ) + СПО (Информационные системы) + Школа 21 от Сбера.
-- Главный фокус: Junior Java Backend Developer (Java 21, Spring Boot 3, PostgreSQL, Docker, Clean Architecture, REST API, многопоточность).
-- Дополнительные целевые роли (РАЗРАБОТКА ПО):
-  • AI & LLM Engineer / Разработчик ИИ (Spring AI, LangChain, OpenAI/Groq API, AI-агенты, RAG, pgvector, prompt engineering)
-  • Junior Python Backend Developer (Python 3, FastAPI, Flask, REST API, PostgreSQL, Docker, ООП, скрипты автоматизации и интеграции)
-  • Junior / Trainee Fullstack JS / Frontend Developer (JavaScript, TypeScript, React 18, Node.js, Express, Sequelize, REST API, MobX, Nginx, Linux VPS). Развернул и задеплоил живой fullstack веб-проект
-  • Разработчик VPN/прокси (Xray, Sing-box, Remnawave, сетевые протоколы)
-  • Junior / Intern Backend Developer (бэкенд, REST API)
-- Никита не имеет многолетнего коммерческого опыта в IT, но имеет сильные учебные и пет-проекты, понимание архитектуры и базы Computer Science.
+{candidate_profile}
 
 Проанализируй вакансию:
 - Название: {title}
@@ -55,28 +48,20 @@ def analyze_vacancy_with_groq(api_key: str, model: str, title: str, company: str
    - "vpn_dev": Разработчик VPN сервисов и протоколов (Xray, Remnawave, VLESS, Sing-box, сетевые сервисы)
    - "backend": Junior / Intern Backend Developer (бэкенд разработка, REST API)
 2. Отсев не-разработки и запрещенных сфер:
-   - ПРЕПОДАВАНИЕ, НАСТАВНИЧЕСТВО, РЕПЕТИТОРСТВО, МЕНТОРСТВО, КУРАТОРСТВО — СТРОГО suitable=false, match_score=1! Никиту интересует ТОЛЬКО инженерная разработка ПО, НЕ преподавание!
-   - ТЕСТИРОВАНИЕ (ручной QA, AQA автотесты, тестировщик ПО) — СТРОГО suitable=false, match_score=1! Никакого тестирования и QA!
+   - ПРЕПОДАВАНИЕ, НАСТАВНИЧЕСТВО, РЕПЕТИТОРСТВО, МЕНТОРСТВО, КУРАТОРСТВО — СТРОГО suitable=false, match_score=1! Кандидата интересует ТОЛЬКО инженерная разработка ПО!
+   - ТЕСТИРОВАНИЕ (ручной QA, AQA автотесты, тестировщик ПО) — СТРОГО suitable=false, match_score=1!
    - Саппорт, техподдержка пользователей L1, разметка данных / AI-тренеры, операторы ПК, холодные продажи, эникей/ремонт ПК — ставь suitable=false, match_score=1.
-   - Чужие стеки без Java/JS/Python: Go, C#, .NET, PHP, Ruby, Rust, C/C++, 1C, мобильная разработка (iOS, Swift, Flutter, Android без Java), GameDev (Unity/Unreal) — СТРОГО ставь suitable=false, match_score=1..2!
-   - Дайджесты и подборки вакансий: если в тексте перечислено несколько разных вакансий/ссылок — СТРОГО ставь suitable=false, match_score=1.
-   - Для вакансий Junior/Trainee Python Backend на FastAPI/Flask — ставь suitable=true, role="python_dev", match_score=7..9!
-   - Для вакансий Junior/Trainee AI / LLM Engineer (интеграция ИИ, нейросети, LLM) — ставь suitable=true, role="ai_dev", match_score=7..9!
-   - Для вакансий Junior/Trainee Fullstack JS / Frontend на React/Node.js/TypeScript — ставь suitable=true, role="fullstack_js", match_score=7..9!
-   - Для вакансий Junior/Trainee Java Developer (Java 21, Spring Boot) — ставь suitable=true, role="java", match_score=7..9!
+   - Дайджесты и подборки вакансий: если в тексте перечислено несколько разных вакансий/ссылок — СТРОГО suitable=false, match_score=1.
 3. Опыт работы:
-   - Для позиций Junior / Стажёр / Trainee / Начинающий разработчик: стандартная HR-формулировка 'требуемый опыт: 1-3 года' или 'опыт от 1 года' в тексте вакансии НЕ является поводом для отказа, если по задачам и стеку это начальная позиция начинающего специалиста.
-   - Отсекать (suitable=false, match_score=1..2) ТОЛЬКО если это реальный Middle+/Senior/Lead с жестким требованием от 2-3+ лет боевого продакшн-опыта, проектирования HighLoad систем или руководства командой.
+   - Для позиций Junior / Стажёр / Trainee / Начинающий разработчик: стандартная HR-формулировка 'требуемый опыт: 1-3 года' или 'опыт от 1 года' в тексте вакансии НЕ является поводом для отказа, если по задачам и стеку это начальная позиция.
+   - Отсекать (suitable=false, match_score=1..2) ТОЛЬКО если это реальный Middle+/Senior/Lead с жестким требованием от 2-3+ лет боевого продакшн-опыта или руководства командой.
 4. Локация, удаленка и зарплата:
-   - УДАЛЕННЫЙ ФОРМАТ (Remote / Удаленка / Дистанционно / Из любого города РФ): ПОДХОДИТ ВСЕГДА (suitable=true) независимо от того, указана зарплата или нет.
-   - СТАЖИРОВКИ (Intern / Стажер / Практикант / Trainee): ПОДХОДЯТ ВСЕГДА (suitable=true), даже если зарплата не указана или не оплачивается (дает ценный опыт в резюме).
-   - ЕСЛИ ЗАРПЛАТА НЕ УКАЗАНА (по договоренности, не указана в тексте): НЕ ОТСЕКАЙ! Одобряй (suitable=true), если стек и уровень подходят, а в recommendation посоветуй уточнить вилку на первом скрининге.
-   - Офис/гибрид Москва/СПб: подходит при зарплате от 80k+, либо если это официальная стажировка известной компании (Сбер, Т-Банк, Яндекс, ВТБ и др.), либо возможна удаленка. Отсекать только если это жесткий офис в Москве/СПб с явно указанной низкой зарплатой менее 70 000 руб.
+   - УДАЛЕННЫЙ ФОРМАТ (Remote / Удаленка / Дистанционно): подходит независимо от того, указана зарплата или нет.
+   - СТАЖИРОВКИ (Intern / Стажер / Практикант / Trainee): подходят, даже если зарплата не указана или не оплачивается.
+   - ЕСЛИ ЗАРПЛАТА НЕ УКАЗАНА: не отсекай, если стек и уровень подходят, а в recommendation посоветуй уточнить вилку на первом скрининге.
 5. Вакансии LinkedIn / International:
-   - Подходит (suitable=true), если это Remote для РФ/СНГ/Worldwide, либо международная/русскоязычная компания, готовая оформлять удаленщиков (ТК РФ, ИП, самозанятость, Deel, Solar Staff, крипта).
-   - Отсекать (suitable=false, match_score=1) только при жестком требовании работы в офисе за рубежом, требовании гражданства США/ЕС или прямого запрета найма резидентов РФ/РБ.
-6. Образование: у Никиты неоконченное высшее (технический ВУЗ), колледж (СПО) и Школа 21 от Сбера. Если требуется высшее образование — одобряй, education_warning=null.
-7. Черный список компаний: Aston (Астон), Deepra (Дипра) — строго suitable=false, match_score=1.
+   - Подходит, если это Remote для СНГ/Worldwide либо международная компания с оформлением удалёнщиков.
+6. Черный список компаний из конфигурации — строго suitable=false, match_score=1.
 
 Верни ответ СТРОГО в формате JSON:
 {{
@@ -85,7 +70,7 @@ def analyze_vacancy_with_groq(api_key: str, model: str, title: str, company: str
   "match_score": целое число от 1 до 10,
   "education_warning": null,
   "verdict": "краткое резюме (1-2 предложения, почему подходит или почему нет)",
-  "recommendation": "практический совет Никите, что подчеркнуть в отклике"
+  "recommendation": "практический совет кандидату, что подчеркнуть в отклике"
 }}
 """
 
@@ -167,18 +152,36 @@ def get_portfolio_url() -> str:
     bot_mod = sys.modules.get("bot") or sys.modules.get("__main__")
     if bot_mod and hasattr(bot_mod, "load_config"):
         try:
-            return bot_mod.load_config().get("portfolio_url") or os.environ.get("PORTFOLIO_URL") or "https://park.shadowkek.space"
+            return bot_mod.load_config().get("portfolio_url") or os.environ.get("PORTFOLIO_URL") or ""
         except Exception:
             pass
     try:
         from career_hub.models.config import load_config
-        return load_config().get("portfolio_url") or os.environ.get("PORTFOLIO_URL") or "https://park.shadowkek.space"
+        return load_config().get("portfolio_url") or os.environ.get("PORTFOLIO_URL") or ""
     except Exception:
-        return os.environ.get("PORTFOLIO_URL") or "https://park.shadowkek.space"
+        return os.environ.get("PORTFOLIO_URL") or ""
+
+
+def _build_role_links(cfg_data: dict, role_key: str, resume_url: str, portfolio_url: str) -> list[str]:
+    links: list[str] = []
+    if resume_url:
+        links.append(f"• Резюме: {resume_url}")
+    proj_map = cfg_data.get("project_links") or {}
+    for entry in proj_map.get(role_key, []):
+        if isinstance(entry, dict):
+            label = entry.get("label", "Проект")
+            url_val = entry.get("url", "")
+            if url_val:
+                links.append(f"• {label}: {url_val}")
+        elif isinstance(entry, str) and entry.strip():
+            links.append(entry.strip())
+    if portfolio_url and not any(portfolio_url in x for x in links):
+        links.append(f"• Живой проект (деплой): {portfolio_url}")
+    return links
 
 
 def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
-    """Генерирует индивидуальное сопроводительное письмо с релевантными ссылками на пет-проекты."""
+    """Генерирует индивидуальное сопроводительное письмо с настраиваемыми ссылками на резюме и пет-проекты."""
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -191,6 +194,7 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
     clean_desc = clean_html(raw_desc)[:1800].strip()
 
     cfg_data = load_config()
+    candidate_name = (cfg_data.get("candidate_name") or cfg_data.get("smtp_from_name") or "Кандидат").strip()
     resume_url = (vacancy.get("resume_url") or cfg_data.get("resume_quick_tunnel_url") or os.environ.get("RESUME_QUICK_TUNNEL_URL", "")).strip()
     if resume_url and not resume_url.endswith("/"):
         resume_url += "/"
@@ -202,157 +206,52 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
     is_python_backend = vacancy.get("role") == "python_dev" or (any(k in full_text for k in ["python", "fastapi", "django", "flask"]) and any(d in full_text for d in ["backend", "бэкенд", "разработчик", "developer", "стажер", "junior"]) and not ("java" in clean_title.lower() and "javascript" not in clean_title.lower()))
     is_fullstack_js = vacancy.get("role") == "fullstack_js" or (any(k in full_text for k in ["fullstack", "фулстек", "full stack", "react", "node", "javascript", "frontend", "front-end", "фронтенд"]) and not ("java" in clean_title.lower() and "javascript" not in clean_title.lower()))
 
+    role_key = "vpn_dev" if is_vpn_dev else ("ai_dev" if is_java_ai else ("python_dev" if is_python_backend else ("fullstack_js" if is_fullstack_js else "java")))
+    links_list = _build_role_links(cfg_data, role_key, resume_url, portfolio_url)
+    links_block = "\n  ".join(links_list) if links_list else "• Ссылки на проекты и резюме предоставляются по запросу"
+
     if is_vpn_dev:
         sys_msg = (
-            "Ты — квалифицированный инженер и разработчик VPN/Proxy инфраструктуры Никита Фролов. "
+            f"Ты — квалифицированный инженер и разработчик сетевой/VPN инфраструктуры {candidate_name}. "
             "Ты составляешь профессиональные, грамотные и зрелые сопроводительные письма. "
-            "Твой стиль: деловой, сдержанный, глубоко технический. Без панибратства, без школьных шаблонов."
+            "Твой стиль: деловой, сдержанный, глубоко технический. Без панибратства."
         )
-        user_prompt = f"""Напиши профессиональное, зрелое и убедительное сопроводительное письмо на позицию разработчика VPN/прокси инфраструктуры.
-
-Кандидат: Никита Фролов
-- Специализация: Разработка и эксплуатация VPN/Proxy инфраструктуры.
-- Технологический стек: Xray-core, VLESS (Reality, Vision), Sing-box, панели управления Remnawave и 3X-UI, протоколы обхода блокировок.
-- Практический опыт: Настройка и администрирование парка Linux VPS нод, проектирование маршрутизации трафика (routing rules), интеграция через REST API панелей управления, мониторинг доступности узлов.
-
-Вакансия:
-- Позиция: {clean_title}
-- Компания: {clean_company or 'Работодатель'}
-- Требования и описание:
-{clean_desc}
-
-СТРОГИЕ ПРАВИЛА СОСТАВЛЕНИЯ:
-1. ВЗРОСЛЫЙ ИНЖЕНЕРНЫЙ ТОН:
-   - Начни строго с уважительного делового приветствия: «Здравствуйте!» или «Добрый день! Меня заинтересовала вакансия {clean_title} в {clean_company}.».
-   - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО детское или панибратское начало («Привет!», «Привет! Меня зовут Никита...»).
-   - Текст должен звучать как письмо компетентного инженера, понимающего специфику современных сетевых протоколов.
-2. ПРИВЯЗКА К СТЕКУ ВАКАНСИИ:
-   - Подчеркни именно те технологии из описания, с которыми есть реальный опыт (Xray, Sing-box, VLESS, Remnawave, автоматизация на Linux).
-3. ПРАКТИЧЕСКИЙ ОПЫТ:
-   - Сделай акцент на реальной практике: управление распределенными нодами, настройка роутинга трафика, работа с API панелей и Linux VPS.
-4. ОБЪЕМ И СТРУКТУРА:
-   - 2-3 компактных, логичных абзаца (примерно 80-120 слов). Без лишней «воды» и пустых клише.
-5. ФИНАЛ:
-   - Заверши профессиональным предложением обсудить технические задачи команды на собеседовании или созвоне.
-6. СТРОГИЙ ЗАПРЕТ:
-   - НИ В КОЕМ СЛУЧАЕ НЕ ПРЕДЛАГАЙ тестовые задания.
-   - Выдавай ТОЛЬКО готовый текст письма, без кавычек, без пометок типа «Тема:» или комментариев.
-"""
+        stack_summary = "Xray-core, VLESS (Reality, Vision), Sing-box, панели управления Remnawave и 3X-UI, маршрутизация трафика и администрирование Linux VPS."
     elif is_java_ai:
         sys_msg = (
-            "Ты — AI / LLM Integration & Backend разработчик Никита Фролов. "
+            f"Ты — AI / LLM Integration & Backend разработчик {candidate_name}. "
             "Ты составляешь профессиональные, грамотные и лаконичные сопроводительные письма. "
-            "Твой стиль: инженерный, современный, структурированный, строго со ссылками на проекты и резюме."
+            "Твой стиль: инженерный, современный, структурированный."
         )
-        user_prompt = f"""Напиши профессиональное сопроводительное письмо на позицию разработчика ИИ / интегратора AI & LLM.
-
-Кандидат: Никита Фролов
-- Ссылки на проекты и резюме:
-  • Резюме: {resume_url}
-  • Проект по ИИ (ML/NLP): https://github.com/nikitos7626/mvideo-nlp
-  • Живой веб-проект (деплой): {portfolio_url}
-- Стек и фокус: AI / LLM интеграции (LLM API, Function Calling, RAG, AI-агенты, LangChain, Spring AI), бэкенд (Python/Java, REST API, PostgreSQL, Docker). Чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.
-- База и готовность: Базу по бэкенду, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
-
-Вакансия:
-- Позиция: {clean_title}
-- Компания: {clean_company or 'Работодатель'}
-- Описание:
-{clean_desc}
-
-СТРОГАЯ СТРУКТУРА ПИСЬМА:
-1. Приветствие: «Здравствуйте! Откликаюсь на вакансию {clean_title}{' в компании ' + clean_company if clean_company else ''}.»
-2. Обязательный блок ссылок буллетами:
-   Прикрепляю ссылки на резюме и практические проекты:
-   • Резюме: {resume_url}
-   • Проект по ИИ (ML/NLP): https://github.com/nikitos7626/mvideo-nlp
-   • Сайт (деплой): {portfolio_url}
-3. Стек: AI / LLM интеграции (LLM API, Function Calling, RAG, AI-агенты, LangChain, Spring AI), бэкенд (Python/Java, REST API, PostgreSQL, Docker). Чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.
-4. Финал: Базу по бэкенду, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
-"""
+        stack_summary = "AI / LLM интеграции (LLM API, Function Calling, RAG, AI-агенты, LangChain, Spring AI), бэкенд (Python/Java, REST API, PostgreSQL, Docker). Чистая архитектура, деплой на Linux VPS под Nginx с SSL."
     elif is_python_backend:
         sys_msg = (
-            "Ты — Junior Python Backend разработчик Никита Фролов. "
+            f"Ты — Junior Python Backend разработчик {candidate_name}. "
             "Ты составляешь профессиональные, грамотные и лаконичные сопроводительные письма. "
-            "Твой стиль: инженерный, современный, структурированный, строго со ссылками на проекты и резюме."
+            "Твой стиль: инженерный, современный, структурированный."
         )
-        user_prompt = f"""Напиши профессиональное сопроводительное письмо на позицию Python Backend разработчика.
-
-Кандидат: Никита Фролов
-- Ссылки на проекты и резюме:
-  • Резюме: {resume_url}
-  • Проект на Python (NLP/ML/AI): https://github.com/nikitos7626/mvideo-nlp
-  • Telegram-бот на Python: https://github.com/nikitos7626/ExCalendar
-  • Сайт (деплой): {portfolio_url}
-- Стек и фокус: Python 3, FastAPI, PostgreSQL, Docker, REST API, чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.
-- База и готовность: Базу по Python, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
-
-Вакансия:
-- Позиция: {clean_title}
-- Компания: {clean_company or 'Работодатель'}
-- Описание:
-{clean_desc}
-
-СТРОГАЯ СТРУКТУРА ПИСЬМА:
-1. Приветствие: «Здравствуйте! Откликаюсь на вакансию {clean_title}{' в компании ' + clean_company if clean_company else ''}.»
-2. Обязательный блок ссылок буллетами:
-   Прикрепляю ссылки на резюме и практические проекты:
-   • Резюме: {resume_url}
-   • Проект на Python (NLP/ML/AI): https://github.com/nikitos7626/mvideo-nlp
-   • Telegram-бот на Python: https://github.com/nikitos7626/ExCalendar
-   • Сайт (деплой): {portfolio_url}
-3. Стек: Python 3, FastAPI, PostgreSQL, Docker, REST API, чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.
-4. Финал: Базу по Python, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
-"""
+        stack_summary = "Python 3, FastAPI, PostgreSQL, Docker, REST API, чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL."
     elif is_fullstack_js:
         sys_msg = (
-            "Ты — Fullstack JS / Frontend разработчик Никита Фролов. "
+            f"Ты — Fullstack JS / Frontend разработчик {candidate_name}. "
             "Ты составляешь профессиональные, четкие и лаконичные сопроводительные письма. "
-            "Стиль: живой, структурированный, уверенный, строго со структурированными буллетами на ссылки и проекты."
+            "Стиль: живой, структурированный, уверенный."
         )
-        user_prompt = f"""Напиши профессиональное сопроводительное письмо на позицию стажёра / Junior Fullstack JS разработчика.
-
-Кандидат: Никита Фролов
-- Ссылки на резюме и пет-проекты:
-  • Резюме: {resume_url}
-  • Сайт (деплой): {portfolio_url}
-  • Репозиторий фронта: https://github.com/nikitos7626/park-client
-  • Репозиторий бэка: https://github.com/nikitos7626/Park-server
-- Стек проекта: React 18 (MobX), Node.js (Express, Sequelize). Реализована JWT-авторизация, роли, интеграция с API. Всё сам развернул и настроил на Linux VPS под Nginx с SSL.
-- База и готовность: Базу по JS (ES6+, промисы, async/await, DOM), Git и React понимаю. Готов выполнить тестовое задание.
-
-Вакансия:
-- Позиция: {clean_title}
-- Компания: {clean_company or 'Работодатель'}
-- Описание:
-{clean_desc}
-
-СТРОГАЯ СТРУКТУРА ПИСЬМА:
-1. Приветствие: «Привет! Откликаюсь на вакансию {clean_title}.»
-2. Обязательный блок ссылок буллетами:
-   Прикрепляю ссылки на резюме и живой пет-проект, как указано в требованиях вакансии:
-   • Резюме: {resume_url}
-   • Сайт (деплой): {portfolio_url}
-   • Репозиторий фронта: https://github.com/nikitos7626/park-client
-   • Репозиторий бэка: https://github.com/nikitos7626/Park-server
-3. Стек проекта: React 18 (MobX), Node.js (Express, Sequelize). Реализована JWT-авторизация, роли, интеграция с API. Всё сам развернул и настроил на Linux VPS под Nginx с SSL.
-4. Финал: Базу по JS (ES6+, промисы, async/await, DOM), Git и React понимаю. Готов выполнить тестовое задание.
-"""
+        stack_summary = "React 18 (MobX), Node.js (Express, Sequelize), TypeScript, JWT-авторизация, интеграция с REST API, деплой на Linux VPS под Nginx с SSL."
     else:
         sys_msg = (
-            "Ты — квалифицированный Junior Java Backend разработчик Никита Фролов. "
+            f"Ты — Junior Java Backend разработчик {candidate_name}. "
             "Ты составляешь профессиональные, грамотные и лаконичные сопроводительные письма. "
-            "Твой стиль: деловой, инженерный, уверенный, со структурированными буллетами на ссылки и проекты."
+            "Твой стиль: деловой, инженерный, уверенный."
         )
-        user_prompt = f"""Напиши профессиональное, зрелое и убедительное сопроводительное письмо на позицию Java-разработчика.
+        stack_summary = "Java 21, Spring Boot 3 (Spring Data JPA, Security), PostgreSQL, Docker, Clean Architecture и REST API, деплой на Linux VPS под Nginx с SSL."
 
-Кандидат: Никита Фролов
-- Ссылки на резюме и пет-проекты:
-  • Резюме: {resume_url}
-  • Репозиторий бэкенда: https://github.com/nikitos7626/BackendSpringBlog
-  • Сайт (деплой): {portfolio_url}
-- Стек проекта: Java 21, Spring Boot 3 (Spring Data JPA, Security), PostgreSQL, Docker. Реализовал архитектуру Clean Architecture и REST API. Все сервисы развернул и настроил сам на Linux VPS под Nginx с SSL.
-- База и готовность: Базу по Java Core, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
+    user_prompt = f"""Напиши профессиональное, убедительное сопроводительное письмо на позицию {clean_title}.
+
+Кандидат: {candidate_name}
+- Ссылки на проекты и резюме:
+  {links_block}
+- Стек и фокус: {stack_summary}
 
 Вакансия:
 - Позиция: {clean_title}
@@ -361,14 +260,11 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
 {clean_desc}
 
 СТРОГАЯ СТРУКТУРА ПИСЬМА:
-1. Приветствие: «Здравствуйте! Откликаюсь на вакансию {clean_title}{' в компании ' + clean_company if clean_company else ''}.»
-2. Обязательный блок ссылок буллетами:
-   Прикрепляю ссылки на резюме и практические проекты:
-   • Резюме: {resume_url}
-   • Репозиторий бэкенда: https://github.com/nikitos7626/BackendSpringBlog
-   • Сайт (деплой): {portfolio_url}
-3. Стек: Java 21, Spring Boot 3 (Spring Data JPA, Security), PostgreSQL, Docker. Реализовал архитектуру Clean Architecture и REST API. Все сервисы развернул и настроил сам на Linux VPS под Nginx с SSL.
-4. Финал: Базу по Java Core, ООП, SQL и Git понимаю. Готов выполнить тестовое задание.
+1. Уважительное деловое приветствие («Здравствуйте! Откликаюсь на вакансию {clean_title}{' в компании ' + clean_company if clean_company else ''}.»).
+2. Если есть ссылки на проекты/резюме выше — вставь их аккуратным списком.
+3. Кратко покажи релевантность стека задачам вакансии (2–3 компактных абзаца, 80–120 слов).
+4. Заверши деловым предложением обсудить задачи на собеседовании (готов выполнить тестовое задание).
+Выдавай ТОЛЬКО готовый текст письма без лишних пометок и кавычек.
 """
 
     models_to_try = [model]
@@ -393,24 +289,10 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
                     letter = resp.json()["choices"][0]["message"]["content"].strip()
                     if (letter.startswith('"') and letter.endswith('"')) or (letter.startswith('«') and letter.endswith('»')):
                         letter = letter[1:-1].strip()
-                    if resume_url and resume_url not in letter:
-                        letter = letter + f"\n\n• Резюме: {resume_url}"
-                    if is_java_ai:
-                        if "mvideo-nlp" not in letter:
-                            letter = letter + "\n• Проект по ИИ (ML/NLP): https://github.com/nikitos7626/mvideo-nlp"
-                    elif is_python_backend:
-                        if "mvideo-nlp" not in letter and "ExCalendar" not in letter:
-                            letter = letter + "\n• Проект на Python: https://github.com/nikitos7626/mvideo-nlp"
-                    elif is_fullstack_js:
-                        if "park-client" not in letter:
-                            letter = letter + "\n• Репозиторий фронта: https://github.com/nikitos7626/park-client"
-                        if "Park-server" not in letter:
-                            letter = letter + "\n• Репозиторий бэка: https://github.com/nikitos7626/Park-server"
-                    elif not is_vpn_dev:
-                        if "BackendSpringBlog" not in letter:
-                            letter = letter + "\n• Репозиторий бэкенда: https://github.com/nikitos7626/BackendSpringBlog"
-                    if not is_vpn_dev and portfolio_url not in letter:
-                        letter = letter + f"\n• Живой проект (деплой): {portfolio_url}"
+                    for link_line in links_list:
+                        url_token = link_line.split(": ", 1)[-1].strip()
+                        if url_token and url_token not in letter:
+                            letter = letter + f"\n{link_line}"
                     return letter
                 elif resp.status_code == 429:
                     logger.warning(f"Groq Rate Limit (429) при генерации Cover Letter на {current_model}. Пробуем резервную...")
@@ -422,64 +304,14 @@ def generate_cover_letter(api_key: str, model: str, vacancy: dict) -> str:
                 logger.error(f"Ошибка вызова Groq Cover Letter ({current_model}): {e}")
                 time.sleep(1)
 
-    # Профессиональный фоллбек на случай недоступности нейросети
-    if is_java_ai:
-        comp_str = f" в {clean_company}" if clean_company else ""
-        return (
-            f"Здравствуйте! Откликаюсь на вакансию {clean_title}{comp_str}.\n\n"
-            f"Прикрепляю ссылки на резюме и практические проекты:\n"
-            f"• Резюме: {resume_url}\n"
-            f"• Проект по ИИ (ML/NLP): https://github.com/nikitos7626/mvideo-nlp\n"
-            f"• Сайт (деплой): {portfolio_url}\n\n"
-            f"Стек: AI / LLM интеграции (LLM API, Function Calling, RAG, AI-агенты, LangChain, Spring AI), бэкенд (Python/Java, REST API, PostgreSQL, Docker). Чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.\n\n"
-            f"Базу по бэкенду, ООП, SQL и Git понимаю. Готов выполнить тестовое задание."
-        )
-
-    if is_python_backend:
-        comp_str = f" в компании {clean_company}" if clean_company else ""
-        return (
-            f"Здравствуйте! Откликаюсь на вакансию {clean_title}{comp_str}.\n\n"
-            f"Прикрепляю ссылки на резюме и практические проекты:\n"
-            f"• Резюме: {resume_url}\n"
-            f"• Проект на Python (NLP/ML/AI): https://github.com/nikitos7626/mvideo-nlp\n"
-            f"• Telegram-бот на Python: https://github.com/nikitos7626/ExCalendar\n"
-            f"• Сайт (деплой): {portfolio_url}\n\n"
-            f"Стек: Python 3, FastAPI, PostgreSQL, Docker, REST API, чистая архитектура, самостоятельный деплой на Linux VPS под Nginx с SSL.\n\n"
-            f"Базу по Python, ООП, SQL и Git понимаю. Готов выполнить тестовое задание."
-        )
-
-    if is_fullstack_js:
-        return (
-            f"Привет! Откликаюсь на вакансию {clean_title}.\n\n"
-            f"Прикрепляю ссылки на резюме и живой пет-проект, как указано в требованиях вакансии:\n"
-            f"• Резюме: {resume_url}\n"
-            f"• Сайт (деплой): {portfolio_url}\n"
-            f"• Репозиторий фронта: https://github.com/nikitos7626/park-client\n"
-            f"• Репозиторий бэка: https://github.com/nikitos7626/Park-server\n\n"
-            f"Стек проекта: React 18 (MobX), Node.js (Express, Sequelize). Реализована JWT-авторизация, роли, интеграция с API. Всё сам развернул и настроил на Linux VPS под Nginx с SSL.\n\n"
-            f"Базу по JS (ES6+, промисы, async/await, DOM), Git и React понимаю. Готов выполнить тестовое задание."
-        )
-
-    if is_vpn_dev:
-        comp_str = f" в компании {clean_company}" if clean_company else ""
-        return (
-            f"Здравствуйте! Откликаюсь на позицию {clean_title}{comp_str}.\n\n"
-            f"Прикрепляю ссылки на резюме и проекты:\n"
-            f"• Резюме: {resume_url}\n"
-            f"• Развёрнутые сервисы (деплой): {portfolio_url}\n\n"
-            f"Стек: Xray-core, VLESS (Reality, Vision), Sing-box, панели Remnawave и 3X-UI, маршрутизация трафика. Развёртывание и администрирование узлов на Linux VPS под Nginx с SSL.\n\n"
-            f"Сетевой стек (TCP/IP, routing, DNS, TLS), Linux и Git понимаю. Готов выполнить тестовое задание."
-        )
-
     comp_str = f" в компании {clean_company}" if clean_company else ""
+    links_section = ("\n\nПрикрепляю ссылки на резюме и практические проекты:\n" + "\n".join(links_list)) if links_list else ""
+    base_note = "Сетевой стек (TCP/IP, routing, DNS, TLS), Linux и Git понимаю." if is_vpn_dev else "Базу по бэкенду, ООП, SQL и Git понимаю."
     return (
-        f"Здравствуйте! Откликаюсь на вакансию {clean_title}{comp_str}.\n\n"
-        f"Прикрепляю ссылки на резюме и практические проекты:\n"
-        f"• Резюме: {resume_url}\n"
-        f"• Репозиторий бэкенда: https://github.com/nikitos7626/BackendSpringBlog\n"
-        f"• Сайт (деплой): {portfolio_url}\n\n"
-        f"Стек проекта: Java 21, Spring Boot 3 (Spring Data JPA, Security), PostgreSQL, Docker. Реализовал архитектуру Clean Architecture и REST API. Все сервисы развернул и настроил сам на Linux VPS под Nginx с SSL.\n\n"
-        f"Базу по Java Core, ООП, SQL и Git понимаю. Готов выполнить тестовое задание."
+        f"Здравствуйте! Откликаюсь на вакансию {clean_title}{comp_str}."
+        f"{links_section}\n\n"
+        f"Стек: {stack_summary}\n\n"
+        f"{base_note} Готов выполнить тестовое задание."
     )
 
 

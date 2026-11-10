@@ -5,10 +5,27 @@
   "allowed_telegram_id": 123456789,
   "groq_api_key": "YOUR_GROQ_API_KEY",
   "groq_model": "llama-3.3-70b-versatile",
-  "resume_quick_tunnel_url": "https://your-portfolio-or-tunnel.trycloudflare.com/",
+  "candidate_name": "Candidate Name",
+  "smtp_from_name": "Candidate Name",
+  "resume_quick_tunnel_url": "https://your-resume.example.com/",
   "miniapp_url": "https://your-miniapp.example.com/",
   "portfolio_url": "https://your-portfolio.example.com",
   "contact_email": "your-email@example.com",
+  "candidate_profile": "",
+  "project_links": {
+    "java": [
+      {"label": "Backend Repository", "url": "https://github.com/your-username/java-service"}
+    ],
+    "python_dev": [
+      {"label": "Python Project", "url": "https://github.com/your-username/python-service"}
+    ],
+    "ai_dev": [
+      {"label": "AI / LLM Project", "url": "https://github.com/your-username/ai-agent"}
+    ],
+    "fullstack_js": [
+      {"label": "Frontend & Backend", "url": "https://github.com/your-username/fullstack-app"}
+    ]
+  },
   "min_match_score": 6,
   "notify_min_score": 9,
   "check_interval_seconds": 600,

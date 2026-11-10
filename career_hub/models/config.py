@@ -53,13 +53,16 @@ DEFAULT_CONFIG = {
     "smtp_user": os.environ.get("SMTP_USER", ""),
     "smtp_password": os.environ.get("SMTP_PASSWORD", ""),
     "smtp_ssl": True,
-    "smtp_from_name": os.environ.get("SMTP_FROM_NAME", "Никита Фролов"),
+    "candidate_name": os.environ.get("CANDIDATE_NAME", "Candidate"),
+    "smtp_from_name": os.environ.get("SMTP_FROM_NAME", "Candidate"),
     "resume_pdf_path": os.environ.get("RESUME_PDF_PATH", ""),
     "hh_resume_hash": os.environ.get("HH_RESUME_HASH", ""),
-    "resume_quick_tunnel_url": os.environ.get("RESUME_QUICK_TUNNEL_URL", "https://south-tomato-therapist-minimum.trycloudflare.com/"),
-    "miniapp_url": os.environ.get("MINIAPP_URL", "https://jobs.shadowkek.space/"),
-    "portfolio_url": os.environ.get("PORTFOLIO_URL", "https://park.shadowkek.space"),
-    "contact_email": os.environ.get("CONTACT_EMAIL", "nikita@shadowkek.space"),
+    "resume_quick_tunnel_url": os.environ.get("RESUME_QUICK_TUNNEL_URL", ""),
+    "miniapp_url": os.environ.get("MINIAPP_URL", "http://localhost:8088/"),
+    "portfolio_url": os.environ.get("PORTFOLIO_URL", ""),
+    "contact_email": os.environ.get("CONTACT_EMAIL", "candidate@example.com"),
+    "candidate_profile": "",
+    "project_links": {},
     "daily_digest_enabled": True,
     "last_digest_time": 0,
     "check_interval_seconds": 600,
@@ -146,33 +149,31 @@ DEFAULT_CONFIG = {
 }
 
 CANDIDATE_PROFILE = """
-Профиль кандидата (Никита Фролов, 21 год):
-Образование: Неоконченное высшее (технический ВУЗ) + СПО (колледж, Информационные системы и программирование) + Школа 21 от Сбера.
-База и алгоритмы: 2.5 года вел практические занятия и код-ревью работ (алгоритмическая культура чистого кода, выявление багов).
+Целевой профиль кандидата (IT-разработчик, Junior / Trainee / Junior+):
+Образование и база: профильное техническое образование, сильные учебные и pet-проекты, понимание архитектуры ПО и алгоритмов.
 
-ЦЕЛЕВОЙ ПРОФИЛЬ (СТРОГО РАЗРАБОТКА ПО):
+ЦЕЛЕВЫЕ НАПРАВЛЕНИЯ (РАЗРАБОТКА ПО):
 1. Junior Java Backend Developer:
    - Стек: Java 21, Spring Boot 3 (Spring Web, Spring Security, Spring Data JPA/JDBC), PostgreSQL, Docker, Clean Architecture, REST API, многопоточность.
 2. AI / LLM Integration & AI Engineer (РАБОТА С ИИ И НЕЙРОСЕТЯМИ):
-   - Разработка и интеграция AI-решений, агентов и LLM пайплайнов (Spring AI, LangChain, OpenAI/Groq API, Function Calling, RAG, pgvector, prompt engineering).
+   - Разработка и интеграция AI-решений, агентов и LLM-пайплайнов (Spring AI, LangChain, OpenAI/Groq API, Function Calling, RAG, pgvector, prompt engineering).
 3. Junior Python Backend Developer:
    - Стек: Python 3, FastAPI, Flask, REST API, PostgreSQL, Docker, ООП, скрипты автоматизации и интеграции.
 4. Junior / Trainee Fullstack JS / Frontend:
-   - React 18, Node.js, Express, Sequelize, REST API, Nginx, Linux VPS. Деплой веб-проектов и SPA.
-5. Разработчик VPN / Прокси сервисов (Xray, Remnawave, VLESS, Sing-box, сетевые протоколы).
+   - React 18, Node.js, Express, REST API, Nginx, Linux VPS. Деплой веб-проектов и SPA.
+5. Разработчик сетевой / VPN инфраструктуры (Xray, Sing-box, Remnawave, сетевые протоколы).
 6. Junior / Intern Backend Developer (стажер или младший бэкенд-разработчик).
 
-КАТЕГОРИЧЕСКИ НЕ ИНТЕРЕСУЕТ (СТРОЖАЙШИЙ ОТСЕВ):
-- ПРЕПОДАВАНИЕ / УЧИТЕЛЬ / МЕНТОР / НАСТАВНИК / РЕПЕТИТОР: любые вакансии в сфере обучения строго запрещены! Никиту интересует ТОЛЬКО инженерная разработка ПО, НЕ преподавание!
+КАТЕГОРИЧЕСКИ НЕ ИНТЕРЕСУЕТ (СТРОГИЙ ОТСЕВ):
+- ПРЕПОДАВАНИЕ / УЧИТЕЛЬ / МЕНТОР / НАСТАВНИК / РЕПЕТИТОР: любые вакансии в сфере обучения строго запрещены! Кандидата интересует ТОЛЬКО инженерная разработка ПО!
 - ТЕСТИРОВАНИЕ И QA / AQA: любые вакансии тестировщиков, автотестеров и QA строго запрещены!
 - ТЕХНИЧЕСКАЯ ПОДДЕРЖКА / САППОРТ / L1-L3 / СОПРОВОЖДЕНИЕ: запрещены!
 - РАЗМЕТКА ДАННЫХ И AI-ТРЕНЕРСТВО: запрещены!
 - ВАКАНСИИ С ТРЕБОВАНИЕМ ОПЫТА: Исключать вакансии уровня Middle+ / Senior (требование от 2-3+ лет реального коммерческого опыта, руководство, архитектура). Шаблоны вида 'опыт 1-3 года' или 'от 1 года' на позициях Junior / Стажер допустимы, если стек подходит.
 - ЛЮБЫЕ обучающие платные курсы, онлайн-школы, академии, инкубаторы.
-- Ручной эникей / выездной мастер / ремонт ПК / картриджи / телефонный спам-коллцентр.
+- Ручной эникей / выездной мастер / ремонт ПК / телефонный коллцентр.
 - Позиции Middle+, Senior, Lead, Тимлид, Архитектор, Руководитель.
 - 1С, PHP, Ruby, Мобильная разработка.
-- АЛАБУГА / ОЭЗ ППТ «АЛАБУГА» / ЕЛАБУГА: любые вакансии компании Алабуга категорически запрещены и исключаются!
 """
 
 
