@@ -31,23 +31,6 @@ scratch/
 **/.tempmediaStorage/
 
 # Temporary / diagnostic scratch scripts
-scripts/apply_backlog.py
-scripts/apply_config_update.py
-scripts/check_cache_status.py
-scripts/check_hh_responses.py
-scripts/check_hh_session.py
-scripts/check_pending.py
-scripts/clean_seen_safe.py
-scripts/find_missing_letters.py
-scripts/generate_missing_letters.py
-scripts/get_resume_text.py
-scripts/inspect_*.py
-scripts/parse_app_cookies.py
-scripts/probe_backlog.py
-scripts/sync_and_notify.py
-scripts/test_calibrated_prompt.py
-scripts/test_delete_negotiation.py
-scripts/test_hh_auth.py
-scripts/update_vps_*.py
+scripts/
 
 test_data_*/
